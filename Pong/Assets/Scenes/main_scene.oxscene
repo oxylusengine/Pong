@@ -1,0 +1,118 @@
+{
+  "name": "Main",
+  "scripts": [
+    {
+      "uuid": "8f5b3567-b67a-4c4d-83a6-5a37cee845fa"
+    }
+  ],
+  "entities": [
+    {
+      "name": "camera",
+      "tags": [],
+      "components": [
+        {
+          "name": "::ox::Core::TransformComponent",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 5
+          },
+          "rotation": {
+            "x": 0,
+            "y": -1.5708,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        {
+          "name": "::ox::Core::LayerComponent",
+          "layer": 1
+        },
+        {
+          "name": "::ox::Core::CameraComponent",
+          "projection": 1,
+          "fov": 60,
+          "aspect": 1.91111,
+          "far_clip": 1000,
+          "near_clip": 0.01,
+          "tilt": 0,
+          "zoom": 3
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "sun",
+      "tags": [],
+      "components": [
+        {
+          "name": "::ox::Core::TransformComponent",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "rotation": {
+            "x": 1.5708,
+            "y": 0.785398,
+            "z": 0
+          },
+          "scale": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        },
+        {
+          "name": "::ox::Core::LayerComponent",
+          "layer": 1
+        },
+        {
+          "name": "::ox::Core::LightComponent",
+          "type": 0,
+          "color": {
+            "x": 1,
+            "y": 1,
+            "z": 1
+          },
+          "intensity": 10,
+          "radius": 1,
+          "outer_cone_angle": 70,
+          "inner_cone_angle": 0,
+          "cast_shadows": true,
+          "shadow_map_res": 1024
+        },
+        {
+          "name": "::ox::Core::AtmosphereComponent",
+          "rayleigh_scattering": {
+            "x": 5.802,
+            "y": 13.558,
+            "z": 33.1
+          },
+          "rayleigh_density": 8,
+          "mie_scattering": {
+            "x": 3.996,
+            "y": 3.996,
+            "z": 3.996
+          },
+          "mie_density": 1.2,
+          "mie_extinction": 4.44,
+          "mie_asymmetry": 3.6,
+          "ozone_absorption": {
+            "x": 0.65,
+            "y": 1.881,
+            "z": 0.085
+          },
+          "ozone_height": 25,
+          "ozone_thickness": 15,
+          "aerial_perspective_start_km": 8
+        }
+      ],
+      "children": []
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+# Prerequisites
+*.d
+*.bat
+*.dll
+*.cmake
+*.toml
+*.cap
+*.ini
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+*.pdb
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Additional Files/Folders
+/.vs
+/.vscode
+/.idea
+/cmake-build-debug
+/cmake-build-dist
+/cmake-build-release
+/bin
+/bin-int
+/.cache
+/OxylusEditor/Resources/Shaders/Compiled
+/OxylusEditor/SandboxProject
+/OxylusEditor/logs
+*.ccls
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.DotSettings.user
+build
+Build
+*.sln
+*.sln.DotSettings.user
+.editorconfig
+CMakeSettings.json
+/logs
+/cmake-build-debug-visual-studio
+/cmake-build-release-visual-studio
+CMakeLists.txt
+.clangd
+
+# xmake
+.xmake
+compile_commands.json
+.run
+/vsxmake2022
+
+.DS_Store
