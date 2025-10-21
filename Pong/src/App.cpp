@@ -6,8 +6,9 @@
 #include <Networking/NetworkManager.hpp>
 #include <Physics/Physics.hpp>
 #include <Scripting/LuaManager.hpp>
+#include <UI/ImGuiRenderer.hpp>
 
-#include "GameLayer.hpp"
+#include "Game.hpp"
 
 namespace ox {
 class PongApp : public ox::App {
@@ -32,8 +33,8 @@ App* create_application(const AppCommandLineArgs& args) {
     .with<Input>()
     .with<NetworkManager>()
     .with<LuaManager>()
-    .push_imgui_layer()
-    .push_layer(std::make_unique<rog::GameLayer>());
+    .with<ImGuiRenderer>()
+    .with<rog::Game>();
 
   return app;
 }

@@ -2,7 +2,7 @@ target("Pong")
     set_kind("binary")
     set_languages("cxx23")
 
-    add_includedirs("./src")
+    add_includedirs(".")
     add_files("./src/**.cpp")
 
     add_packages("oxylus")

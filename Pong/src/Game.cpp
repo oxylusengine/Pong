@@ -1,22 +1,15 @@
-#include "GameLayer.hpp"
+#include "Game.hpp"
 
 #include <Asset/AssetManager.hpp>
 #include <Core/App.hpp>
 #include <Core/Input.hpp>
 #include <Core/Project.hpp>
-#include <UI/ImGuiLayer.hpp>
+#include <UI/ImGuiRenderer.hpp>
 #include <UI/SceneHierarchyViewer.hpp>
 #include <imgui.h>
 
 namespace rog {
-GameLayer* GameLayer::instance_ = nullptr;
-
-GameLayer::GameLayer() : Layer("Game Layer") {
-  ZoneScoped;
-  instance_ = this;
-}
-
-void GameLayer::on_attach() {
+auto Game::init() -> std::expected<void, std::string> {
   ZoneScoped;
 
   const auto* app = ox::App::get();
@@ -38,20 +31,25 @@ void GameLayer::on_attach() {
   main_scene->load_from_file(scenes_dir + "/main_scene.oxscene");
 
   main_scene->runtime_start();
+
+  return {};
 }
 
-void GameLayer::on_detach() {
+auto Game::deinit() -> std::expected<void, std::string> {
   ZoneScoped;
+
   main_scene->runtime_stop();
+
+  return {};
 }
 
-void GameLayer::on_update(const ox::Timestep& delta_time) {
+auto Game::update(const ox::Timestep& timestep) -> void {
   ZoneScoped;
 
-  main_scene->runtime_update(delta_time);
+  main_scene->runtime_update(timestep);
 }
 
-void GameLayer::on_render(vuk::Extent3D extent, vuk::Format format) {
+auto Game::render(vuk::Extent3D extent, vuk::Format format) -> void {
   ZoneScoped;
 
   ox::SceneHierarchyViewer scene_hierarchy_viewer(main_scene.get());
@@ -59,20 +57,20 @@ void GameLayer::on_render(vuk::Extent3D extent, vuk::Format format) {
   scene_hierarchy_viewer.render("SceneHierarchyViewer", &visible);
 
   const auto* app = ox::App::get();
+  auto& imgui = ox::App::mod<ox::ImGuiRenderer>();
 
   main_scene->on_render(extent, format);
 
   auto renderer_instance = main_scene->get_renderer_instance();
   if (renderer_instance != nullptr) {
     const ox::Renderer::RenderInfo render_info = {
-        .extent = extent,
-        .format = format,
+      .extent = extent,
+      .format = format,
     };
     auto scene_view_image = renderer_instance->render(render_info);
 
     ImGui::Begin("SceneView");
-    ImGui::Image(app->get_imgui_layer()->add_image(std::move(scene_view_image)),
-                 ImVec2{extent.width / 2.f, extent.height / 2.f});
+    ImGui::Image(imgui.add_image(std::move(scene_view_image)), ImVec2{extent.width / 2.f, extent.height / 2.f});
     ImGui::End();
   }
 }
