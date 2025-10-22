@@ -9,10 +9,10 @@ target("Pong")
 
     add_files("./Assets/**")
     add_rules("@oxylus/install_resources", {
-        root_dir = os.scriptdir() .. "/Resources",
-        output_dir = "Resources",
+        root_dir = os.scriptdir() .. "/Assets",
+        output_dir = "Assets",
     })
     add_rules("@oxylus/install_shaders", {
-        output_dir = "Resources/Shaders",
+        output_dir = "Assets/Shaders",
     })
 target_end()
