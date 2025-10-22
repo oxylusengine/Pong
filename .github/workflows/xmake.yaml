@@ -11,6 +11,7 @@ env:
   VULKAN_VERSION: 1.4.309.0
   LLVM_VERSION: 20
   LLVM_WINDOWS_VERSION: 20.1.4
+  LLVM_MACOS_VERSION: 21
 
 jobs:
   build:
@@ -27,8 +28,8 @@ jobs:
           - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: release, runtime: c++_static }
           - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: debug,   runtime: c++_static }
 
-          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: gcc-14,   mode: release, runtime: stdc++_static }
-          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: gcc-14,   mode: debug,   runtime: stdc++_static }
+          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: release, runtime: c++_static }
+          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: debug,   runtime: c++_static }
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
@@ -66,6 +67,17 @@ jobs:
         uses: KyleMayes/install-llvm-action@master
         with:
           version: "${{env.LLVM_WINDOWS_VERSION}}"
+
+      - name: Install LLVM for MacOS
+        if: ${{ matrix.platform.os == 'macos' }}
+        run: |
+          brew install llvm@${{ env.LLVM_MACOS_VERSION }}
+          LLVM_PATH=$(brew --prefix llvm@${{ env.LLVM_MACOS_VERSION }})
+          echo "LLVM_PATH=$LLVM_PATH" >> $GITHUB_ENV
+          echo "PATH=$LLVM_PATH/bin:$PATH" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$LLVM_PATH/lib/c++ -Wl,-rpath,$LLVM_PATH/lib/c++ $LDFLAGS" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$LLVM_PATH/include $CPPFLAGS" >> $GITHUB_ENV
+          echo "CXXFLAGS=-stdlib=libc++ $CXXFLAGS" >> $GITHUB_ENV
 
       # Install xmake
       - name: Setup xmake
