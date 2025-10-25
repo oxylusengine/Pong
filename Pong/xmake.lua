@@ -1,6 +1,7 @@
 target("Pong")
     set_kind("binary")
     set_languages("cxx23")
+    add_rpathdirs("@executable_path")
 
     add_includedirs(".")
     add_files("./src/**.cpp")

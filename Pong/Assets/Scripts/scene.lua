@@ -1,5 +1,5 @@
 local vfs = App:get_vfs()
-WORKING_DIR = vfs:PROJECT_DIR()
+WORKING_DIR = vfs:APP_DIR()
 
 screen_size = {}
 
@@ -22,7 +22,7 @@ function on_add(scene)
 end
 
 function create_player(scene, player_id, starting_point)
-  local am = App.get_asset_manager()
+  local am = App.mod.AssetManager
 
   local player = scene:create_entity("player", true)
   player:add(Components.PlayerComponent, { id = player_id })
@@ -65,7 +65,7 @@ function add_starting_velocity(ball, speed)
 end
 
 function create_ball(scene)
-  local am = App.get_asset_manager()
+  local am = App.mod.AssetManager
 
   local ball = scene:create_entity("ball", true)
   ball:add(Components.BallComponent)

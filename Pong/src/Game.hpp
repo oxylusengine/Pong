@@ -2,10 +2,10 @@
 
 #include <Scene/Scene.hpp>
 
-namespace rog {
+namespace pong {
 class Game {
 public:
-  constexpr static auto MODULE_NAME = "GAME";
+  constexpr static auto MODULE_NAME = "Pong";
 
   auto init() -> std::expected<void, std::string>;
   auto deinit() -> std::expected<void, std::string>;

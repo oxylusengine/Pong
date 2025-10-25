@@ -4,7 +4,7 @@ Assets = {
 }
 
 function Assets.load_assets(WORKING_DIR)
-  local asset_man = App:get_asset_manager()
+  local asset_man = App.mod.AssetManager
   local vfs = App:get_vfs();
 
   local sprites_dir = vfs:resolve_physical_dir(WORKING_DIR, "Sprites")
