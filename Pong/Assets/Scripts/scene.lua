@@ -14,6 +14,7 @@ Assets = require_script(WORKING_DIR, 'Scripts/assets.lua')
 function on_add(scene)
   Components.PlayerComponent = Component.define(scene, "PlayerComponent", {
     id = { type = "u32", default = 0 },
+    speed = Config.PLAYER_SPEED,
   })
   Components.BallComponent = Component.define(scene, "BallComponent", {
     speed = Config.BALL_SPEED,
@@ -25,7 +26,7 @@ function create_player(scene, player_id, starting_point)
   local am = App.mod.AssetManager
 
   local player = scene:create_entity("player", true)
-  player:add(Components.PlayerComponent, { id = player_id })
+  player:add(Components.PlayerComponent, { id = player_id, speed = Config.PLAYER_SPEED })
   player:add(Core.SpriteComponent)
 
   local sc = player:get_mut(Core.SpriteComponent)
@@ -93,8 +94,34 @@ function create_ball(scene)
   return ball
 end
 
+function add_walls(scene, window_width, window_height)
+  local wall = scene:create_entity("up_wall")
+  wall:add(Core.BoxColliderComponent, {
+    friction = 0,
+    restitution = 1,
+  })
+  wall:add(Core.RigidBodyComponent, {
+    type = 1,
+    gravity_factor = 0,
+    friction = 0,
+    restitution = 1,
+    linear_drag = 0,
+    angular_drag = 0
+  })
+  wall:modified(Core.RigidBodyComponent)
+end
+
+Subs = {}
+
 function on_scene_start(scene)
   screen_size = vec2.new(0, 0)
+
+  local window_resize_event = App:get_event_system():subscribe_window_resize_event(function(e)
+    add_walls(scene, e.width, e.height)
+  end)
+  if window_resize_event then
+    table.insert(Subs, window_resize_event)
+  end
 
   Assets.load_assets(WORKING_DIR)
 
@@ -120,21 +147,41 @@ function on_scene_start(scene)
         if (tc_data.position.y - bc_data.radius) <= 0.0 then
           local ball_velocity = body:get_linear_velocity()
           ball_velocity.y = ball_velocity.y * -1
-          body:set_linear_velocity(ball_velocity)
+          --body:set_linear_velocity(ball_velocity)
         end
 
         if (tc_data.position.y + bc_data.radius) >= screen_size.y then
           local ball_velocity = body:get_linear_velocity()
           ball_velocity.y = ball_velocity.y * -1
-          body:set_linear_velocity(ball_velocity)
+          --body:set_linear_velocity(ball_velocity)
         end
       end
     end
   )
-end
 
-function on_viewport_render(scene)
+  scene:world():system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate },
+    function(it)
+      local tc = it:field(0, Core.TransformComponent)
+      local pc = it:field(1, Components.PlayerComponent)
 
+      for i = 1, it:count(), 1 do
+        local tc_data = tc:at(i - 1)
+        local pc_data = pc:at(i - 1)
+
+        local entity = it:entity(i - 1)
+        local body = Physics.get_body(entity)
+
+        local input = App.mod.Input
+
+        if input:get_key_held(KeyCode.W) then
+          body:set_linear_velocity(vec3.new(0, pc_data.speed, 0))
+        end
+        if input:get_key_held(KeyCode.S) then
+          body:set_linear_velocity(vec3.new(0, -pc_data.speed, 0))
+        end
+      end
+    end
+  )
 end
 
 function on_scene_render(scene, extent, format)

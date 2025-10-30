@@ -28,7 +28,7 @@ add_cxxflags(
 includes("xmake/rules.lua")
 includes("xmake/options.lua")
 
-add_requires("oxylus main", { debug = is_mode("debug"), configs = {
+add_requires("oxylus 9e646d9a5ada08b2396c915c21d7b6b950851445", { debug = is_mode("debug"), configs = {
     lua_bindings = true,
     profile = is_mode("debug"),
     tests = false,

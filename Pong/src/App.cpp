@@ -1,41 +1,22 @@
-#include <Asset/AssetManager.hpp>
 #include <Core/App.hpp>
-#include <Core/EntryPoint.hpp>
-#include <Core/Enum.hpp>
-#include <Core/Input.hpp>
-#include <Networking/NetworkManager.hpp>
-#include <Physics/Physics.hpp>
-#include <Render/RendererConfig.hpp>
-#include <Scripting/LuaManager.hpp>
-#include <UI/ImGuiRenderer.hpp>
+#include <Core/DefaultModules.hpp>
 
 #include "Game.hpp"
 
-namespace ox {
-App* create_application(const AppCommandLineArgs& args) {
-  const auto app = new App();
-  app->with_name("Pong")
-    .with_args(args)
+int main(int argc, char** argv) {
+  auto app = ox::App(argc, argv);
+  app.with_name("Pong")
     .with_window({
       .title = "Pong",
       .icon = {},
       .width = 1720,
       .height = 900,
-      .flags = WindowFlag::Centered | WindowFlag::Resizable,
+      .flags = ox::WindowFlag::Centered | ox::WindowFlag::Resizable,
     })
     .with_assets_directory("Assets")
-    .with<LuaManager>()
-    .with<AssetManager>()
-    .with<AudioEngine>()
-    .with<Physics>()
-    .with<Input>()
-    .with<NetworkManager>()
-    .with<DebugRenderer>()
-    .with<ImGuiRenderer>()
-    .with<RendererConfig>()
-    .with<Renderer>()
-    .with<pong::Game>();
+    .with(ox::DefaultModules{})
+    .with<pong::Game>()
+    .run();
 
-  return app;
+  return 0;
 }
-} // namespace ox

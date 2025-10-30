@@ -7,6 +7,7 @@
 #include <UI/ImGuiRenderer.hpp>
 #include <UI/SceneHierarchyViewer.hpp>
 #include <imgui.h>
+#include <vuk/vsl/Core.hpp>
 
 namespace pong {
 auto Game::init() -> std::expected<void, std::string> {
@@ -44,42 +45,27 @@ auto Game::update(const ox::Timestep& timestep) -> void {
   ZoneScoped;
 
   main_scene->runtime_update(timestep);
-}
 
-auto Game::render(vuk::Extent3D extent, vuk::Format format) -> void {
-  ZoneScoped;
+  auto& vk_context = ox::App::get_vkcontext();
+  auto& imgui_renderer = ox::App::mod<ox::ImGuiRenderer>();
+  auto& window = ox::App::get_window();
 
-  auto& imgui = ox::App::mod<ox::ImGuiRenderer>();
+  auto swapchain_attachment = vk_context.new_frame();
+  swapchain_attachment = vuk::clear_image(std::move(swapchain_attachment), vuk::Black<ox::f32>);
+
+  vuk::Format format = swapchain_attachment->format;
+  vuk::Extent3D extent = swapchain_attachment->extent;
+
+  imgui_renderer.begin_frame(timestep.get_seconds(), {window.get_logical_width(), window.get_logical_height()});
 
   main_scene->on_render(extent, format);
 
   auto renderer_instance = main_scene->get_renderer_instance();
-  if (renderer_instance != nullptr) {
-    const ox::Renderer::RenderInfo render_info = {
-      .extent = extent,
-      .format = format,
-    };
-    auto scene_view_image = renderer_instance->render(render_info);
+  const ox::Renderer::RenderInfo render_info = {};
+  auto scene_view_image = renderer_instance->render(std::move(swapchain_attachment), render_info);
 
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
+  scene_view_image = imgui_renderer.end_frame(vk_context, std::move(scene_view_image));
 
-    constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar |
-                                       ImGuiWindowFlags_NoCollapse;
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
-
-    if (ImGui::Begin("SceneView", nullptr, flags)) {
-      ImGui::Image(
-        imgui.add_image(std::move(scene_view_image)),
-        ImVec2{static_cast<ox::f32>(extent.width), static_cast<ox::f32>(extent.height)}
-      );
-    }
-    ImGui::End();
-
-    ImGui::PopStyleVar();
-  }
+  vk_context.end_frame(scene_view_image);
 }
 } // namespace pong
