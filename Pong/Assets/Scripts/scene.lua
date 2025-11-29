@@ -1,7 +1,5 @@
 local vfs = App:get_vfs()
-WORKING_DIR = vfs:APP_DIR()
-
-screen_size = {}
+WORKING_DIR = vfs:PROJECT_DIR()
 
 Components = {
   PlayerComponent,
@@ -11,14 +9,17 @@ Components = {
 Config = require_script(WORKING_DIR, 'Scripts/config.lua')
 Assets = require_script(WORKING_DIR, 'Scripts/assets.lua')
 
+player1 = {}
+player2 = {}
+
 function on_add(scene)
   Components.PlayerComponent = Component.define(scene, "PlayerComponent", {
     id = { type = "u32", default = 0 },
     speed = Config.PLAYER_SPEED,
+    score = 0
   })
   Components.BallComponent = Component.define(scene, "BallComponent", {
     speed = Config.BALL_SPEED,
-    radius = 32, -- TODO: IDK how big is the ball in pixels
   })
 end
 
@@ -36,11 +37,13 @@ function create_player(scene, player_id, starting_point)
 
   local player_tc = player:get_mut(Core.TransformComponent)
   player_tc:set_position(starting_point)
+  player_tc:set_scale(vec3.new(0.5, 2, 1))
   player:modified(Core.TransformComponent)
 
   player:add(Core.BoxColliderComponent, {
     friction = 0,
     restitution = 1,
+    size = vec3.new(0.25, 1, 1.0)
   })
   player:add(Core.RigidBodyComponent, {
     type = 1, -- kinematic
@@ -49,15 +52,11 @@ function create_player(scene, player_id, starting_point)
     restitution = 1,
     linear_drag = 0,
     angular_drag = 0,
+    allow_sleep = false,
   })
   player:modified(Core.RigidBodyComponent)
 
   return player
-end
-
-function reset_ball(tc)
-  tc:set_x(0)
-  tc:set_y(0)
 end
 
 function add_starting_velocity(ball, speed)
@@ -94,13 +93,16 @@ function create_ball(scene)
   return ball
 end
 
-function add_walls(scene, window_width, window_height)
-  local wall = scene:create_entity("up_wall")
-  wall:add(Core.BoxColliderComponent, {
+function create_walls(scene)
+  local top_wall = scene:create_entity("top_wall")
+  local top_wall_tc = top_wall:get_mut(Core.TransformComponent)
+  top_wall_tc:set_position(vec3.new(0, 3, 0))
+  top_wall:add(Core.BoxColliderComponent, {
     friction = 0,
     restitution = 1,
+    size = vec3.new(7, 0.2, 1)
   })
-  wall:add(Core.RigidBodyComponent, {
+  top_wall:add(Core.RigidBodyComponent, {
     type = 1,
     gravity_factor = 0,
     friction = 0,
@@ -108,28 +110,48 @@ function add_walls(scene, window_width, window_height)
     linear_drag = 0,
     angular_drag = 0
   })
-  wall:modified(Core.RigidBodyComponent)
+  top_wall:modified(Core.RigidBodyComponent)
+
+  local bottom_wall = scene:create_entity("bottom_wall")
+  bottom_wall:get_mut(Core.TransformComponent):set_position(vec3.new(0, -3, 0))
+  bottom_wall:add(Core.BoxColliderComponent, {
+    friction = 0,
+    restitution = 1,
+    size = vec3.new(7, 0.2, 1)
+  })
+  bottom_wall:add(Core.RigidBodyComponent, {
+    type = 1,
+    gravity_factor = 0,
+    friction = 0,
+    restitution = 1,
+    linear_drag = 0,
+    angular_drag = 0
+  })
+  bottom_wall:modified(Core.RigidBodyComponent)
 end
 
-Subs = {}
-
 function on_scene_start(scene)
-  screen_size = vec2.new(0, 0)
-
-  local window_resize_event = App:get_event_system():subscribe_window_resize_event(function(e)
-    add_walls(scene, e.width, e.height)
-  end)
-  if window_resize_event then
-    table.insert(Subs, window_resize_event)
-  end
-
   Assets.load_assets(WORKING_DIR)
 
-  local player1 = create_player(scene, Config.PLAYER_1_ID, vec3.new(5, 0.0, 0))
-  local player2 = create_player(scene, Config.PLAYER_2_ID, vec3.new(-5, 0.0, 0))
+  create_walls(scene)
+
+  player1 = create_player(scene, Config.PLAYER_1_ID, vec3.new(5, 0.0, 0))
+  player2 = create_player(scene, Config.PLAYER_2_ID, vec3.new(-5, 0.0, 0))
   local ball = create_ball(scene)
 
   add_starting_velocity(ball, ball:get(Components.BallComponent).speed)
+
+  local reset_ball = function(body, speed)
+    body:set_position(scene, vec3.new(0, 0, 0))
+    body:set_linear_velocity(vec3.new(0, 0, 0))
+    body:set_linear_velocity(vec3.new(speed, 0, 0)) -- starting velocity
+  end
+
+  local add_score = function(player)
+    local pc = player:get_mut(Components.PlayerComponent)
+    local new_score = pc.score + 1
+    pc:set_score(new_score)
+  end
 
   scene:world():system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate },
     function(it)
@@ -143,17 +165,13 @@ function on_scene_start(scene)
         local entity = it:entity(i - 1)
         local body = Physics.get_body(entity)
 
-        -- check if its out of screen bounds then bounce
-        if (tc_data.position.y - bc_data.radius) <= 0.0 then
-          local ball_velocity = body:get_linear_velocity()
-          ball_velocity.y = ball_velocity.y * -1
-          --body:set_linear_velocity(ball_velocity)
+        if (tc_data.position.x > 6) then
+          reset_ball(body, bc_data.speed)
+          add_score(player1)
         end
-
-        if (tc_data.position.y + bc_data.radius) >= screen_size.y then
-          local ball_velocity = body:get_linear_velocity()
-          ball_velocity.y = ball_velocity.y * -1
-          --body:set_linear_velocity(ball_velocity)
+        if (tc_data.position.x < -6) then
+          reset_ball(body, bc_data.speed)
+          add_score(player2)
         end
       end
     end
@@ -185,7 +203,11 @@ function on_scene_start(scene)
 end
 
 function on_scene_render(scene, extent, format)
-  screen_size = vec2.new(extent.x, extent.y)
+  -- if ImGui.Begin("Player Score Debug View") then
+  --   ImGui.TextUnformatted("Player 1:" .. player1:get_mut(Components.PlayerComponent).score)
+  --   ImGui.TextUnformatted("Player 2:" .. player2:get_mut(Components.PlayerComponent).score)
+  -- end
+  -- ImGui.End()
 end
 
 function on_contact_added(scene, body1, body2)

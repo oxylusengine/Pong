@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
       .icon = {},
       .width = 1720,
       .height = 900,
-      .flags = ox::WindowFlag::Centered | ox::WindowFlag::Resizable,
+      .flags = ox::WindowFlag::Centered | ox::WindowFlag::Resizable | ox::WindowFlag::HighPixelDensity,
     })
     .with_assets_directory("Assets")
     .with(ox::DefaultModules{})

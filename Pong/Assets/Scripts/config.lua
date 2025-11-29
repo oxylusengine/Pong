@@ -5,7 +5,7 @@ local Config = {
   PLAYER_SPEED = 5,
 
   -- BALL
-  BALL_SPEED = 5,
+  BALL_SPEED = 15,
 }
 
 return Config
