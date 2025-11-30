@@ -36,11 +36,11 @@
           "name": "::ox::Core::CameraComponent",
           "projection": 1,
           "fov": 60,
-          "aspect": 1.91111,
+          "aspect": 1.75935,
           "far_clip": 1000,
           "near_clip": 0.01,
           "tilt": 0,
-          "zoom": 3
+          "zoom": 5
         }
       ],
       "children": []
@@ -84,7 +84,14 @@
           "outer_cone_angle": 70,
           "inner_cone_angle": 0,
           "cast_shadows": true,
-          "shadow_map_res": 1024
+          "shadow_map_res": 1024,
+          "cascade_count": 4,
+          "first_cascade_far_bound": 10,
+          "maximum_shadow_distance": 1000,
+          "minimum_shadow_distance": 0.01,
+          "cascade_overlap_propotion": 0.2,
+          "depth_bias": 0.002,
+          "normal_bias": 1.8
         },
         {
           "name": "::ox::Core::AtmosphereComponent",
@@ -109,7 +116,8 @@
           },
           "ozone_height": 25,
           "ozone_thickness": 15,
-          "aerial_perspective_start_km": 8
+          "aerial_perspective_start_km": 8,
+          "aerial_perspective_exposure": 1
         }
       ],
       "children": []
