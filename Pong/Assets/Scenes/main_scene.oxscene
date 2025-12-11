@@ -36,7 +36,7 @@
           "name": "::ox::Core::CameraComponent",
           "projection": 1,
           "fov": 60,
-          "aspect": 1.75935,
+          "aspect": 1.68,
           "far_clip": 1000,
           "near_clip": 0.01,
           "tilt": 0,

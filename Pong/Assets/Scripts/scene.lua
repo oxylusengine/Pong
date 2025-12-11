@@ -6,8 +6,8 @@ Components = {
   BallComponent,
 }
 
-Config = require_script(WORKING_DIR, 'Scripts/config.lua')
-Assets = require_script(WORKING_DIR, 'Scripts/assets.lua')
+Config = require_script(WORKING_DIR, "Scripts/config.lua")
+Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
 
 ball = {}
 player1 = {}
@@ -17,7 +17,7 @@ function on_add(scene)
   Components.PlayerComponent = Component.define(scene, "PlayerComponent", {
     id = { type = "u32", default = 0 },
     speed = Config.PLAYER_SPEED,
-    score = 0
+    score = 0,
   })
   Components.BallComponent = Component.define(scene, "BallComponent", {
     speed = Config.BALL_SPEED,
@@ -44,7 +44,7 @@ function create_player(scene, player_id, starting_point)
   player:add(Core.BoxColliderComponent, {
     friction = 0,
     restitution = 1,
-    size = vec3.new(0.25, 1, 1.0)
+    size = vec3.new(0.25, 1, 1.0),
   })
   player:add(Core.RigidBodyComponent, {
     type = 1, -- kinematic
@@ -104,7 +104,7 @@ function create_walls(scene)
   top_wall:add(Core.BoxColliderComponent, {
     friction = 0,
     restitution = 1,
-    size = vec3.new(10, 0.2, 1)
+    size = vec3.new(10, 0.2, 1),
   })
   top_wall:add(Core.RigidBodyComponent, {
     type = 1,
@@ -112,7 +112,7 @@ function create_walls(scene)
     friction = 0,
     restitution = 1,
     linear_drag = 0,
-    angular_drag = 0
+    angular_drag = 0,
   })
   top_wall:modified(Core.RigidBodyComponent)
 
@@ -121,7 +121,7 @@ function create_walls(scene)
   bottom_wall:add(Core.BoxColliderComponent, {
     friction = 0,
     restitution = 1,
-    size = vec3.new(10, 0.2, 1)
+    size = vec3.new(10, 0.2, 1),
   })
   bottom_wall:add(Core.RigidBodyComponent, {
     type = 1,
@@ -157,8 +157,9 @@ function on_scene_start(scene)
     pc:set_score(new_score)
   end
 
-  scene:world():system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate },
-    function(it)
+  scene
+    :world()
+    :system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate }, function(it)
       local tc = it:field(0, Core.TransformComponent)
       local bc = it:field(1, Components.BallComponent)
 
@@ -171,20 +172,20 @@ function on_scene_start(scene)
 
         local vel = body:get_linear_velocity()
 
-        if (tc_data.position.x > 9) then
+        if tc_data.position.x > 9 then
           reset_ball(body, bc_data.speed)
           add_score(player1)
         end
-        if (tc_data.position.x < -9) then
+        if tc_data.position.x < -9 then
           reset_ball(body, bc_data.speed)
           add_score(player2)
         end
       end
-    end
-  )
+    end)
 
-  scene:world():system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate },
-    function(it)
+  scene
+    :world()
+    :system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate }, function(it)
       local tc = it:field(0, Core.TransformComponent)
       local pc = it:field(1, Components.PlayerComponent)
 
@@ -208,8 +209,7 @@ function on_scene_start(scene)
 
         body:set_linear_velocity(player_velocity)
       end
-    end
-  )
+    end)
 end
 
 function on_scene_render(scene, extent, format)
@@ -230,53 +230,54 @@ function on_scene_render(scene, extent, format)
 end
 
 function on_contact_added(scene, body1, body2)
-    local ball_body = nil
-    local paddle_body = nil
-    local paddle_entity = nil
-    
-    local e1 = Physics.get_entity_from_body(body1, scene:world()) 
-    local e2 = Physics.get_entity_from_body(body2, scene:world())
+  local ball_body = nil
+  local paddle_body = nil
+  local paddle_entity = nil
 
-    if e1:has(Components.BallComponent) and e2:has(Components.PlayerComponent) then
-        ball_body = body1
-        paddle_body = body2
-        paddle_entity = e2
-    elseif e2:has(Components.BallComponent) and e1:has(Components.PlayerComponent) then
-        ball_body = body2
-        paddle_body = body1
-        paddle_entity = e1
-    end
+  local e1 = Physics.get_entity_from_body(body1, scene:world())
+  local e2 = Physics.get_entity_from_body(body2, scene:world())
 
-    if ball_body and paddle_body then
-        local ball_pos = ball_body:get_position()
-        local paddle_pos = paddle_body:get_position()
-        
-        -- 1. Calculate relative impact point on paddle (from -0.5 to 0.5 roughly)
-        local diff_y = ball_pos.y - paddle_pos.y
-        
-        -- 2. Normalize it based on paddle height
-        -- Paddle height is 1.0
-        local paddle_half_height = 0.5 
-        local relative_intersect = diff_y / paddle_half_height
-        
-        -- Clamp it between -1 and 1 to prevent weird bugs if it hits the very corner
-        relative_intersect = math.max(-1, math.min(1, relative_intersect))
+  if e1:has(Components.BallComponent) and e2:has(Components.PlayerComponent) then
+    ball_body = body1
+    paddle_body = body2
+    paddle_entity = e2
+  elseif e2:has(Components.BallComponent) and e1:has(Components.PlayerComponent) then
+    ball_body = body2
+    paddle_body = body1
+    paddle_entity = e1
+  end
 
-        -- 3. Calculate new bounce angle
-        local MAX_BOUNCE_ANGLE = math.rad(60) -- 60 degrees in radians
-        local bounce_angle = relative_intersect * MAX_BOUNCE_ANGLE
+  if ball_body and paddle_body then
+    local ball_pos = ball_body:get_position()
+    local paddle_pos = paddle_body:get_position()
 
-        -- 4. Calculate new Velocity Vector
-        -- We need to know which direction to shoot (Left or Right)
-        -- If paddle is on the Left (x < 0), shoot Right (positive X)
-        -- If paddle is on the Right (x > 0), shoot Left (negative X)
-        local direction_x = (paddle_pos.x < 0) and 1 or -1
-        
-        local ball_speed = Config.BALL_SPEED
-        
-        local new_vel_x = direction_x * ball_speed * math.cos(bounce_angle)
-        local new_vel_y = ball_speed * math.sin(bounce_angle)
+    -- 1. Calculate relative impact point on paddle (from -0.5 to 0.5 roughly)
+    local diff_y = ball_pos.y - paddle_pos.y
 
-        ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
-    end
+    -- 2. Normalize it based on paddle height
+    -- Paddle height is 1.0
+    local paddle_half_height = 0.5
+    local relative_intersect = diff_y / paddle_half_height
+
+    -- Clamp it between -1 and 1 to prevent weird bugs if it hits the very corner
+    relative_intersect = math.max(-1, math.min(1, relative_intersect))
+
+    -- 3. Calculate new bounce angle
+    local MAX_BOUNCE_ANGLE = math.rad(60) -- 60 degrees in radians
+    local bounce_angle = relative_intersect * MAX_BOUNCE_ANGLE
+
+    -- 4. Calculate new Velocity Vector
+    -- We need to know which direction to shoot (Left or Right)
+    -- If paddle is on the Left (x < 0), shoot Right (positive X)
+    -- If paddle is on the Right (x > 0), shoot Left (negative X)
+    local direction_x = (paddle_pos.x < 0) and 1 or -1
+
+    local ball_speed = Config.BALL_SPEED
+
+    local new_vel_x = direction_x * ball_speed * math.cos(bounce_angle)
+    local new_vel_y = ball_speed * math.sin(bounce_angle)
+
+    ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
+  end
 end
+

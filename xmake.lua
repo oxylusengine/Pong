@@ -13,26 +13,32 @@ add_cxxflags("clang::-fexperimental-library")
 -- WARNINGS --
 set_warnings("allextra", "pedantic")
 add_cxxflags(
-    "-Wshadow",
-    "-Wno-missing-braces",
-    "-Wno-unused-parameter",
-    "-Wno-unused-variable",
-    { tools = { "clang", "clangxx", "gcc" } })
+  "-Wshadow",
+  "-Wno-missing-braces",
+  "-Wno-unused-parameter",
+  "-Wno-unused-variable",
+  { tools = { "clang", "clangxx", "gcc" } }
+)
 add_cxxflags(
-    "-Wshadow-all",
-    "-Wno-gnu-line-marker",
-    "-Wno-gnu-anonymous-struct",
-    "-Wno-gnu-zero-variadic-macro-arguments",
-    { tools = { "clang", "clangxx" } })
+  "-Wshadow-all",
+  "-Wno-gnu-line-marker",
+  "-Wno-gnu-anonymous-struct",
+  "-Wno-gnu-zero-variadic-macro-arguments",
+  { tools = { "clang", "clangxx" } }
+)
 
 includes("xmake/rules.lua")
 includes("xmake/options.lua")
 
-add_requires("oxylus main", { debug = is_mode("debug"), configs = {
+add_requires("oxylus main", {
+  debug = is_mode("debug"),
+  configs = {
     lua_bindings = true,
     profile = is_mode("debug"),
     tests = false,
-} })
+  },
+})
 
 includes("Pong")
 includes("xmake/toolchains.lua")
+
