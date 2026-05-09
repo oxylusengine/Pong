@@ -22,11 +22,11 @@ auto Game::init() -> std::expected<void, std::string> {
   // This could be replaced by an API from Oxylus that can iterate over the given assets directory and
   // import the assets
   // Other assets are being loaded on runtime from lua.
-  asset_man.import_asset(scripts_dir + "/scene.lua.oxasset");
+  asset_man.import_asset(scripts_dir / "/scene.lua.oxasset");
 
   main_scene = std::make_unique<ox::Scene>("MainScene");
 
-  main_scene->load_from_file(scenes_dir + "/main_scene.oxscene");
+  main_scene->load_from_file(scenes_dir / "/main_scene.oxscene");
 
   main_scene->runtime_start();
 
@@ -51,12 +51,12 @@ auto Game::update(const ox::Timestep& timestep) -> void {
   auto& window = ox::App::get_window();
 
   auto swapchain_attachment = vk_context.new_frame();
-  swapchain_attachment = vuk::clear_image(std::move(swapchain_attachment), vuk::Black<ox::f32>);
+  swapchain_attachment = vuk::clear_image(std::move(swapchain_attachment), vuk::Black<f32>);
 
   vuk::Format format = swapchain_attachment->format;
   vuk::Extent3D extent = swapchain_attachment->extent;
 
-  imgui_renderer.begin_frame(timestep.get_seconds(), {window.get_logical_width(), window.get_logical_height()});
+  imgui_renderer.begin_frame(timestep.get_seconds(), {window.get_logical_width(), window.get_logical_height()}, window.get_real_size());
 
   main_scene->on_render(extent, format);
 
