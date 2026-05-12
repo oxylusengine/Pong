@@ -34,11 +34,10 @@ add_requires("oxylus main", {
   debug = is_mode("debug"),
   configs = {
     lua_bindings = true,
-    profile = is_mode("debug"),
+    profile = false,
     tests = false,
   },
 })
 
 includes("Pong")
 includes("xmake/toolchains.lua")
-
