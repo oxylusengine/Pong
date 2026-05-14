@@ -22,11 +22,11 @@ auto Game::init() -> std::expected<void, std::string> {
   // This could be replaced by an API from Oxylus that can iterate over the given assets directory and
   // import the assets
   // Other assets are being loaded on runtime from lua.
-  asset_man.import_asset(scripts_dir / "/scene.lua.oxasset");
+  asset_man.import_asset(scripts_dir / "scene.lua.oxasset");
 
   main_scene = std::make_unique<ox::Scene>("MainScene");
 
-  main_scene->load_from_file(scenes_dir / "/main_scene.oxscene");
+  main_scene->load_from_file(scenes_dir / "main_scene.oxscene");
 
   main_scene->runtime_start();
 

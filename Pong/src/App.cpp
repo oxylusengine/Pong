@@ -9,9 +9,9 @@ int main(int argc, char** argv) {
     .with_window({
       .title = "Pong",
       .icon = {},
-      .width = 1720,
+      .width = 1200,
       .height = 900,
-      .flags = ox::WindowFlag::Centered | ox::WindowFlag::Resizable | ox::WindowFlag::HighPixelDensity,
+      .flags = ox::WindowFlag::Centered | ox::WindowFlag::HighPixelDensity,
     })
     .with_assets_directory("Assets")
     .with(ox::DefaultModules{})

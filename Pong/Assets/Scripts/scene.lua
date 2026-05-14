@@ -1,5 +1,5 @@
 local vfs = App:get_vfs()
-WORKING_DIR = vfs:PROJECT_DIR()
+WORKING_DIR = vfs:APP_DIR()
 
 Components = {
   PlayerComponent,
@@ -8,6 +8,16 @@ Components = {
 
 Config = require_script(WORKING_DIR, "Scripts/config.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
+
+local GameState = {
+  MainMenu = 1,
+  Lobby = 2,
+  Playing = 3,
+}
+
+local current_state = GameState.MainMenu
+local p1_ready = false
+local p2_ready = false
 
 ball = {}
 player1 = {}
@@ -134,99 +144,167 @@ function create_walls(scene)
   bottom_wall:modified(Core.RigidBodyComponent)
 end
 
-function on_scene_start(scene)
-  Assets.load_assets(WORKING_DIR)
-
+function start_match(scene)
   create_walls(scene)
 
-  player1 = create_player(scene, Config.PLAYER_1_ID, vec3.new(8, 0.0, 0))
-  player2 = create_player(scene, Config.PLAYER_2_ID, vec3.new(-8, 0.0, 0))
+  player1 = create_player(scene, Config.PLAYER_1_ID, vec3.new(5, 0.0, 0))
+  player2 = create_player(scene, Config.PLAYER_2_ID, vec3.new(-5, 0.0, 0))
   ball = create_ball(scene)
 
   add_starting_velocity(ball, ball:get(Components.BallComponent).speed)
 
-  local reset_ball = function(body, speed)
-    body:set_position(scene, vec3.new(0, 0, 0))
-    body:set_linear_velocity(vec3.new(0, 0, 0))
-    body:set_linear_velocity(vec3.new(speed, 0, 0)) -- starting velocity
-  end
+  current_state = GameState.Playing
+end
 
-  local add_score = function(player)
-    local pc = player:get_mut(Components.PlayerComponent)
-    local new_score = pc.score + 1
-    pc:set_score(new_score)
-  end
+function reset_ball(scene, entity, body, speed)
+  body:set_position(scene, vec3.new(0, 0, 0))
+  body:set_linear_velocity(vec3.new(speed, 0, 0)) -- starting velocity
 
-  scene
-    :world()
-    :system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate }, function(it)
-      local tc = it:field(0, Core.TransformComponent)
-      local bc = it:field(1, Components.BallComponent)
+  local tc = entity:get_mut(Core.TransformComponent)
+  tc:set_position(vec3.new(0, 0, 0))
+  entity:modified(Core.TransformComponent)
 
-      for i = 1, it:count(), 1 do
-        local tc_data = tc:at(i - 1)
-        local bc_data = bc:at(i - 1)
+  Log.info("Resetted ball!")
+end
 
-        local entity = it:entity(i - 1)
-        local body = Physics.get_body(entity)
+function add_score(player)
+  local pc = player:get_mut(Components.PlayerComponent)
+  local new_score = pc.score + 1
+  pc:set_score(new_score)
 
-        local vel = body:get_linear_velocity()
+  Log.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
+end
 
-        if tc_data.position.x > 9 then
-          reset_ball(body, bc_data.speed)
-          add_score(player1)
-        end
-        if tc_data.position.x < -9 then
-          reset_ball(body, bc_data.speed)
-          add_score(player2)
-        end
-      end
-    end)
+function on_scene_start(scene)
+  Assets.load_assets(WORKING_DIR)
 
   scene
-    :world()
-    :system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate }, function(it)
-      local tc = it:field(0, Core.TransformComponent)
-      local pc = it:field(1, Components.PlayerComponent)
+      :world()
+      :system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate }, function(it)
+        if current_state ~= GameState.Playing then return end
 
-      for i = 1, it:count(), 1 do
-        local tc_data = tc:at(i - 1)
-        local pc_data = pc:at(i - 1)
+        local tc = it:field(0, Core.TransformComponent)
+        local bc = it:field(1, Components.BallComponent)
 
-        local entity = it:entity(i - 1)
-        local body = Physics.get_body(entity)
+        for i = 1, it:count(), 1 do
+          local tc_data = tc:at(i - 1)
+          local bc_data = bc:at(i - 1)
 
-        local input = App.mod.Input
+          local entity = it:entity(i - 1)
+          local body = Physics.get_body(entity)
 
-        local player_velocity = vec3.new(0)
+          local vel = body:get_linear_velocity()
 
-        if input:get_key_held(KeyCode.W) then
-          player_velocity = vec3.new(0, pc_data.speed, 0)
+          if tc_data.position.x > 6 then
+            reset_ball(scene, entity, body, bc_data.speed)
+            add_score(player1)
+          end
+          if tc_data.position.x < -6 then
+            reset_ball(scene,entity, body, bc_data.speed)
+            add_score(player2)
+          end
         end
-        if input:get_key_held(KeyCode.S) then
-          player_velocity = vec3.new(0, -pc_data.speed, 0)
-        end
+      end)
 
-        body:set_linear_velocity(player_velocity)
-      end
-    end)
+  scene
+      :world()
+      :system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate }, function(it)
+        if current_state ~= GameState.Playing then return end
+
+        local tc = it:field(0, Core.TransformComponent)
+        local pc = it:field(1, Components.PlayerComponent)
+
+        for i = 1, it:count(), 1 do
+          local tc_data = tc:at(i - 1)
+          local pc_data = pc:at(i - 1)
+
+          local entity = it:entity(i - 1)
+          local body = Physics.get_body(entity)
+
+          local input = App.mod.Input
+
+          local player_velocity = vec3.new(0)
+
+          if pc_data.id == Config.PLAYER_1_ID then
+            if input:get_key_held(KeyCode.Up) then player_velocity.y = pc_data.speed end
+            if input:get_key_held(KeyCode.Down) then player_velocity.y = -pc_data.speed end
+          elseif pc_data.id == Config.PLAYER_2_ID then
+            if input:get_key_held(KeyCode.W) then player_velocity.y = pc_data.speed end
+            if input:get_key_held(KeyCode.S) then player_velocity.y = -pc_data.speed end
+          end
+
+          body:set_linear_velocity(player_velocity)
+        end
+      end)
 end
 
 function on_scene_render(scene, extent, format)
-  if ImGui.Begin("Physics Debug") then
-    local ballbody = Physics.get_body(ball)
-    local ballvel = ballbody:get_linear_velocity()
-    ImGui.TextUnformatted("x:" .. tostring(ballvel.x))
-    ImGui.TextUnformatted("y:" .. tostring(ballvel.y))
-    ImGui.TextUnformatted("z:" .. tostring(ballvel.z))
-  end
-  ImGui.End()
+  ImGui.PushFont(30)
 
-  -- if ImGui.Begin("Player Score Debug View") then
-  --   ImGui.TextUnformatted("Player 1:" .. player1:get_mut(Components.PlayerComponent).score)
-  --   ImGui.TextUnformatted("Player 2:" .. player2:get_mut(Components.PlayerComponent).score)
-  -- end
-  -- ImGui.End()
+  if current_state == GameState.MainMenu then
+    -- MAIN MENU UI
+    if ImGui.Begin("Main Menu", true, ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoDecoration) then
+      ImGui.TextUnformatted("Welcome to Pong!")
+      ImGui.Separator()
+
+      if ImGui.Button("Local Co-Op") then
+        current_state = GameState.Lobby
+      end
+      if ImGui.Button("Quit Game") then
+        App:get():should_stop()
+      end
+    end
+    ImGui.End()
+  elseif current_state == GameState.Lobby then
+    -- LOBBY UI
+    if ImGui.Begin("Local Co-Op Lobby", true, ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoDecoration) then
+      -- Check for inputs to ready up
+      local input = App.mod.Input
+      if input:get_key_pressed(KeyCode.Up) or input:get_key_pressed(KeyCode.Down) then
+        p1_ready = true
+      end
+      if input:get_key_pressed(KeyCode.W) or input:get_key_pressed(KeyCode.S) then
+        p2_ready = true
+      end
+
+      -- Display status
+      if p1_ready then
+        ImGui.TextColored(0, 1, 0, 1, "Player 1: READY")
+      else
+        ImGui.TextColored(1, 0, 0, 1, "Player 1: Press Up/Down to Ready")
+      end
+
+      if p2_ready then
+        ImGui.TextColored(0, 1, 0, 1, "Player 2: READY")
+      else
+        ImGui.TextColored(1, 0, 0, 1, "Player 2: Press W/S to Ready")
+      end
+
+      ImGui.Separator()
+
+      if p1_ready and p2_ready then
+        if ImGui.Button("Start Match!") then
+          start_match(scene)
+        end
+      end
+
+      if ImGui.Button("Back") then
+        p1_ready = false
+        p2_ready = false
+        current_state = GameState.MainMenu
+      end
+    end
+    ImGui.End()
+  elseif current_state == GameState.Playing then
+    -- PLAYING UI
+    if ImGui.Begin("Player Score Debug View", true, ImGuiWindowFlags.NoDecoration) then
+      ImGui.TextUnformatted("Player 1: " .. player1:get_mut(Components.PlayerComponent).score)
+      ImGui.TextUnformatted("Player 2: " .. player2:get_mut(Components.PlayerComponent).score)
+    end
+    ImGui.End()
+  end
+
+  ImGui.PopFont()
 end
 
 function on_contact_added(scene, body1, body2)
@@ -280,4 +358,3 @@ function on_contact_added(scene, body1, body2)
     ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
   end
 end
-
