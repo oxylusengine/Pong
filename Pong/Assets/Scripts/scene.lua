@@ -200,7 +200,7 @@ function on_scene_start(scene)
             add_score(player1)
           end
           if tc_data.position.x < -6 then
-            reset_ball(scene,entity, body, bc_data.speed)
+            reset_ball(scene, entity, body, bc_data.speed)
             add_score(player2)
           end
         end
@@ -243,6 +243,7 @@ function on_scene_render(scene, extent, format)
 
   if current_state == GameState.MainMenu then
     -- MAIN MENU UI
+    UI.center_next_window(ImGuiCond.Always)
     if ImGui.Begin("Main Menu", true, ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoDecoration) then
       ImGui.TextUnformatted("Welcome to Pong!")
       ImGui.Separator()
@@ -257,6 +258,7 @@ function on_scene_render(scene, extent, format)
     ImGui.End()
   elseif current_state == GameState.Lobby then
     -- LOBBY UI
+    UI.center_next_window(ImGuiCond.Always)
     if ImGui.Begin("Local Co-Op Lobby", true, ImGuiWindowFlags.AlwaysAutoResize + ImGuiWindowFlags.NoDecoration) then
       -- Check for inputs to ready up
       local input = App.mod.Input
@@ -295,6 +297,7 @@ function on_scene_render(scene, extent, format)
       end
     end
     ImGui.End()
+
   elseif current_state == GameState.Playing then
     -- PLAYING UI
     if ImGui.Begin("Player Score Debug View", true, ImGuiWindowFlags.NoDecoration) then
