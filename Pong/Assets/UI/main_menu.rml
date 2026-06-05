@@ -1,0 +1,130 @@
+<rml>
+  <head>
+    <title>Main Menu</title>
+    <style>
+      body {
+        font-family: "Fira Sans";
+        font-weight: normal;
+        font-style: normal;
+
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .menu_panel {
+        display: flex;
+        flex-direction: column;
+
+        width: 400dp;
+        padding: 50dp;
+
+        background-color: #111418cc;
+        border-radius: 16dp;
+      }
+
+      #main_menu {
+        display: flex;
+      }
+
+      #lobby {
+        display: none;
+      }
+
+      h1 {
+        font-size: 64dp;
+        font-weight: bold;
+        color: #ffffff;
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 40dp;
+
+        font-effect: shadow(0dp 4dp #00000080);
+      }
+
+      .status_text {
+        font-size: 24dp;
+        text-align: center;
+        margin-bottom: 20dp;
+      }
+      .ready {
+        color: #00ff00;
+      }
+      .not-ready {
+        color: #ff0000;
+      }
+
+      button.action {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        padding: 16dp;
+        margin-bottom: 16dp;
+
+        text-align: center;
+        font-size: 28dp;
+        color: #e2e8f0;
+
+        background-color: #fb8d45;
+        border: 2dp #00000080;
+        border-radius: 8dp;
+
+        decorator: vertical-gradient(#ae622f #fb8d45);
+
+        transition:
+          transform 0.1s,
+          border-color 0.1s,
+          color 0.1s;
+
+        transform-origin: center center;
+      }
+
+      button.action:last-child {
+        margin-bottom: 0;
+      }
+
+      button.action:hover {
+        border: 2dp #2a323d;
+        border-color: #00000080;
+        color: #ffffff;
+        transform: scale(1.02);
+
+        decorator: vertical-gradient(#fb8d45 #fb8d45);
+      }
+
+      button.action:active {
+        transform: scale(0.98);
+        color: #ae622f;
+
+        decorator: vertical-gradient(#ae622f #ae622f);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main_menu" class="menu_panel">
+      <h1>Pong</h1>
+      <button id="btn_local_coop" class="action">Local Coop</button>
+      <button id="btn_options" class="action">Options</button>
+      <button id="btn_exit" class="action">Exit</button>
+    </div>
+
+    <div id="lobby" class="menu_panel">
+      <h1>Local Co-Op</h1>
+      <div id="p1_status" class="status-text not-ready">
+        Player 1: Press Up/Down to Ready
+      </div>
+      <div id="p2_status" class="status-text not-ready">
+        Player 2: Press W/S to Ready
+      </div>
+
+      <button id="btn_start" class="action" style="display: none">
+        Start Match!
+      </button>
+      <button id="btn_back" class="action">Back</button>
+    </div>
+  </body>
+</rml>
