@@ -1,5 +1,5 @@
 local vfs = App:get_vfs()
-WORKING_DIR = vfs:APP_DIR()
+WORKING_DIR = vfs:PROJECT_DIR()
 
 Components = {
   PlayerComponent,
@@ -8,6 +8,7 @@ Components = {
 
 Config = require_script(WORKING_DIR, "Scripts/config.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
+UI = require_script(WORKING_DIR, "Scripts/ui.lua")
 
 local GameState = {
   MainMenu = 1,
@@ -153,7 +154,7 @@ function start_match(scene)
 
   add_starting_velocity(ball, ball:get(Components.BallComponent).speed)
 
-  current_state = GameState.Playing
+  UI.current_state = UI.GameState.Playing
 end
 
 function reset_ball(scene, entity, body, speed)
@@ -175,103 +176,19 @@ function add_score(player)
   Log.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
 end
 
-local main_menu_doc
-local p1_status
-local p2_status
-local main_menu
-local lobby
-local btn_start
-
-function load_rmlui(scene)
-  local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/main_menu.rml")
-  local rml_main_context = rmlui.contexts['main']
-  main_menu_doc = rml_main_context:LoadDocument(ui_document_path)
-  main_menu_doc:Show()
-
-  main_menu = main_menu_doc:GetElementById("main_menu")
-  lobby = main_menu_doc:GetElementById("lobby")
-  p1_status = main_menu_doc:GetElementById("p1_status")
-  p2_status = main_menu_doc:GetElementById("p2_status")
-  btn_start = main_menu_doc:GetElementById("btn_start")
-
-  main_menu_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
-    main_menu.style.display = 'none'
-    lobby.style.display = 'flex'
-    current_state = GameState.Lobby
-  end)
-
-  main_menu_doc:GetElementById("btn_back"):AddEventListener("click", function()
-    p1_ready = false
-    p2_ready = false
-
-    -- Reset UI text and colors
-    p1_status.inner_rml = "Player 1: Press Up/Down to Ready"
-    p1_status:SetClass("ready", false)
-    p1_status:SetClass("not-ready", true)
-
-    p2_status.inner_rml = "Player 2: Press W/S to Ready"
-    p2_status:SetClass("ready", false)
-    p2_status:SetClass("not-ready", true)
-
-    btn_start.style.display = 'none'
-
-    lobby.style.display = 'none'
-    main_menu.style.display = 'flex'
-    current_state = GameState.MainMenu
-  end)
-
-  main_menu_doc:GetElementById("btn_exit"):AddEventListener("click", function()
-    App:get():should_stop()
-  end)
-
-  main_menu_doc:GetElementById("btn_start"):AddEventListener("click", function()
-    start_match(scene)
-  end)
-end
-
 function on_scene_update(scene)
-  local input = App.mod.Input
-  if input:get_key_pressed(KeyCode.R) then
-    main_menu_doc:Close()
-    load_rmlui(scene)
-  end
-
-
-  if current_state == GameState.Lobby then
-    local state_changed = false
-
-    if not p1_ready and (input:get_key_pressed(KeyCode.Up) or input:get_key_pressed(KeyCode.Down)) then
-      p1_ready = true
-      p1_status.inner_rml = "Player 1: READY"
-      p1_status:SetClass("not-ready", false)
-      p1_status:SetClass("ready", true)
-      state_changed = true
-    end
-
-    if not p2_ready and (input:get_key_pressed(KeyCode.W) or input:get_key_pressed(KeyCode.S)) then
-      p2_ready = true
-      p2_status.inner_rml = "Player 2: READY"
-      p2_status:SetClass("not-ready", false)
-      p2_status:SetClass("ready", true)
-      state_changed = true
-    end
-
-    -- If someone just readied up, check if we should show the Start button
-    if state_changed and p1_ready and p2_ready then
-      btn_start.style.display = 'block'
-    end
-  end
+  UI.update(scene, start_match)
 end
 
 function on_scene_start(scene)
   Assets.load_assets(WORKING_DIR)
 
-  load_rmlui(scene)
+  UI.init(scene, start_match)
 
   scene
       :world()
       :system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate }, function(it)
-        if current_state ~= GameState.Playing then return end
+        if UI.current_state ~= UI.GameState.Playing then return end
 
         local tc = it:field(0, Core.TransformComponent)
         local bc = it:field(1, Components.BallComponent)
@@ -282,8 +199,6 @@ function on_scene_start(scene)
 
           local entity = it:entity(i - 1)
           local body = Physics.get_body(entity)
-
-          local vel = body:get_linear_velocity()
 
           if tc_data.position.x > 6 then
             reset_ball(scene, entity, body, bc_data.speed)
@@ -299,7 +214,7 @@ function on_scene_start(scene)
   scene
       :world()
       :system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate }, function(it)
-        if current_state ~= GameState.Playing then return end
+        if UI.current_state ~= UI.GameState.Playing then return end
 
         local tc = it:field(0, Core.TransformComponent)
         local pc = it:field(1, Components.PlayerComponent)
@@ -350,10 +265,10 @@ function on_contact_added(scene, body1, body2)
     local ball_pos = ball_body:get_position()
     local paddle_pos = paddle_body:get_position()
 
-    -- 1. Calculate relative impact point on paddle (from -0.5 to 0.5 roughly)
+    -- Calculate relative impact point on paddle (from -0.5 to 0.5 roughly)
     local diff_y = ball_pos.y - paddle_pos.y
 
-    -- 2. Normalize it based on paddle height
+    -- Normalize it based on paddle height
     -- Paddle height is 1.0
     local paddle_half_height = 0.5
     local relative_intersect = diff_y / paddle_half_height
@@ -361,11 +276,11 @@ function on_contact_added(scene, body1, body2)
     -- Clamp it between -1 and 1 to prevent weird bugs if it hits the very corner
     relative_intersect = math.max(-1, math.min(1, relative_intersect))
 
-    -- 3. Calculate new bounce angle
+    -- Calculate new bounce angle
     local MAX_BOUNCE_ANGLE = math.rad(60) -- 60 degrees in radians
     local bounce_angle = relative_intersect * MAX_BOUNCE_ANGLE
 
-    -- 4. Calculate new Velocity Vector
+    -- Calculate new Velocity Vector
     -- We need to know which direction to shoot (Left or Right)
     -- If paddle is on the Left (x < 0), shoot Right (positive X)
     -- If paddle is on the Right (x > 0), shoot Left (negative X)
