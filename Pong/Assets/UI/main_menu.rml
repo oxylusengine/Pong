@@ -7,23 +7,61 @@
     <div id="main_menu" class="menu_panel">
       <h1>Pong</h1>
       <button id="btn_local_coop" class="action">Local Coop</button>
+      <button id="btn_online" class="action">Online Multiplayer</button>
       <button id="btn_options" class="action">Options</button>
       <button id="btn_exit" class="action">Exit</button>
     </div>
 
-    <div id="lobby" class="menu_panel">
-      <h1>Local Co-Op</h1>
-      <div id="p1_status" class="status-text not-ready">
-        Player 1: Press Up/Down to Ready
-      </div>
-      <div id="p2_status" class="status-text not-ready">
-        Player 2: Press W/S to Ready
+    <div id="online_menu" class="menu_panel">
+      <h1>Network</h1>
+
+      <button id="btn_host" class="action">Host Game</button>
+
+      <div
+        style="
+          margin-top: 20dp;
+          margin-bottom: 20dp;
+          text-align: center;
+          font-size: 20dp;
+          color: #7f8c8d;
+        "
+      >
+        — OR JOIN SERVER —
       </div>
 
-      <button id="btn_start" class="action" style="display: none">
+      <input type="text" id="ip_input" value="127.0.0.1" />
+      <button id="btn_join" class="action">Connect</button>
+
+      <button id="btn_online_back" class="action" style="margin-top: 20dp">
+        Back
+      </button>
+    </div>
+
+    <div id="lobby" class="menu_panel">
+      <h1 id="lobby_title">Lobby</h1>
+
+      <div class="player-card">
+        <h2>Player 1</h2>
+        <div id="p1_status" class="status-text not-ready">
+          Press Up/Down to Ready
+        </div>
+      </div>
+
+      <div class="player-card">
+        <h2>Player 2</h2>
+        <div id="p2_status" class="status-text not-ready">
+          Press W/S to Ready
+        </div>
+      </div>
+
+      <button
+        id="btn_start"
+        class="action"
+        style="display: none; margin-top: 10dp"
+      >
         Start Match!
       </button>
-      <button id="btn_back" class="action">Back</button>
+      <button id="btn_lobby_back" class="action">Back</button>
     </div>
   </body>
 </rml>

@@ -22,7 +22,9 @@ body {
 #main_menu {
   display: flex;
 }
-
+#online_menu {
+  display: none;
+}
 #lobby {
   display: none;
 }
@@ -34,20 +36,37 @@ h1 {
   text-align: center;
   margin-top: 0;
   margin-bottom: 40dp;
-
   font-effect: shadow(0dp 4dp #00000080);
 }
 
-.status_text {
-  font-size: 24dp;
+.player-card {
+  background-color: #1e252d;
+  border: 2dp #2a323d;
+  border-radius: 8dp;
+  padding: 20dp;
+  margin-bottom: 16dp;
   text-align: center;
-  margin-bottom: 20dp;
+}
+
+.player-card h2 {
+  font-size: 32dp;
+  margin: 0;
+  margin-bottom: 10dp;
+  color: #fb8d45;
+}
+
+.status_text {
+  font-size: 32dp;
 }
 .ready {
   color: #00ff00;
 }
 .not-ready {
   color: #ff0000;
+}
+
+input.text:focus {
+  border-color: #fb8d45;
 }
 
 button.action {

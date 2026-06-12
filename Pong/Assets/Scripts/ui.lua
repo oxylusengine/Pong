@@ -18,6 +18,7 @@ local p1_status
 local p2_status
 local main_menu
 local lobby
+local online_menu
 local btn_start
 
 function UI.init(scene, on_start_match)
@@ -28,17 +29,40 @@ function UI.init(scene, on_start_match)
 
   main_menu = main_menu_doc:GetElementById("main_menu")
   lobby = main_menu_doc:GetElementById("lobby")
+  online_menu = main_menu_doc:GetElementById("online_menu")
   p1_status = main_menu_doc:GetElementById("p1_status")
   p2_status = main_menu_doc:GetElementById("p2_status")
   btn_start = main_menu_doc:GetElementById("btn_start")
 
-  main_menu_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
+  local function display_main_menu()
+    main_menu.style.display = 'flex'
+    lobby.style.display = 'none'
+    online_menu.style.display = 'none'
+  end
+
+  local function display_lobby_menu()
     main_menu.style.display = 'none'
     lobby.style.display = 'flex'
+    online_menu.style.display = 'none'
+  end
+
+  local function display_online_menu()
+    main_menu.style.display = 'none'
+    lobby.style.display = 'none'
+    online_menu.style.display = 'flex'
+  end
+
+  main_menu_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
+    display_lobby_menu()
     UI.current_state = UI.GameState.Lobby
   end)
 
-  main_menu_doc:GetElementById("btn_back"):AddEventListener("click", function()
+  main_menu_doc:GetElementById("btn_online"):AddEventListener("click", function()
+    display_online_menu()
+    UI.current_state = UI.GameState.Lobby
+  end)
+
+  main_menu_doc:GetElementById("btn_lobby_back"):AddEventListener("click", function()
     UI.p1_ready = false
     UI.p2_ready = false
 
@@ -53,8 +77,14 @@ function UI.init(scene, on_start_match)
 
     btn_start.style.display = 'none'
 
-    lobby.style.display = 'none'
-    main_menu.style.display = 'flex'
+    display_main_menu()
+    UI.current_state = UI.GameState.MainMenu
+  end)
+
+  main_menu_doc:GetElementById("btn_online_back"):AddEventListener("click", function()
+    -- TODO: maybe shutdown the server etc. here
+
+    display_main_menu()
     UI.current_state = UI.GameState.MainMenu
   end)
 
