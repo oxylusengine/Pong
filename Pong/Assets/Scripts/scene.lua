@@ -10,16 +10,6 @@ Config = require_script(WORKING_DIR, "Scripts/config.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
 UI = require_script(WORKING_DIR, "Scripts/ui.lua")
 
-local GameState = {
-  MainMenu = 1,
-  Lobby = 2,
-  Playing = 3,
-}
-
-local current_state = GameState.MainMenu
-local p1_ready = false
-local p2_ready = false
-
 ball = {}
 player1 = {}
 player2 = {}
