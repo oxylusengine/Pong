@@ -24,12 +24,15 @@ local btn_start
 function UI.init(scene, on_start_match)
   local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/main_menu.rml")
   local rml_main_context = rmlui.contexts['main']
+  rmlui_ext.ClearStyleCache(main_menu_doc)
+  rmlui_ext.ClearTemplateCache(main_menu_doc)
   main_menu_doc = rml_main_context:LoadDocument(ui_document_path)
   main_menu_doc:Show()
 
   main_menu = main_menu_doc:GetElementById("main_menu")
   lobby = main_menu_doc:GetElementById("lobby")
   online_menu = main_menu_doc:GetElementById("online_menu")
+  game_ui = main_menu_doc:GetElementById("game_ui")
   p1_status = main_menu_doc:GetElementById("p1_status")
   p2_status = main_menu_doc:GetElementById("p2_status")
   btn_start = main_menu_doc:GetElementById("btn_start")
@@ -38,18 +41,28 @@ function UI.init(scene, on_start_match)
     main_menu.style.display = 'flex'
     lobby.style.display = 'none'
     online_menu.style.display = 'none'
+    game_ui.style.display = 'none'
   end
 
   local function display_lobby_menu()
     main_menu.style.display = 'none'
     lobby.style.display = 'flex'
     online_menu.style.display = 'none'
+    game_ui.style.display = 'none'
   end
 
   local function display_online_menu()
     main_menu.style.display = 'none'
     lobby.style.display = 'none'
     online_menu.style.display = 'flex'
+    game_ui.style.display = 'none'
+  end
+
+  local function display_game_ui()
+    main_menu.style.display = 'none'
+    lobby.style.display = 'none'
+    online_menu.style.display = 'none'
+    game_ui.style.display = 'flex'
   end
 
   main_menu_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
@@ -94,19 +107,22 @@ function UI.init(scene, on_start_match)
 
   main_menu_doc:GetElementById("btn_start"):AddEventListener("click", function()
     UI.current_state = UI.GameState.Playing
-    main_menu_doc:Hide() -- Hide the UI when playing
+
+    display_game_ui()
 
     if on_start_match then
       on_start_match(scene)
     end
   end)
+
+  Oxlog.info("Initalized UI.")
 end
 
 function UI.update(scene, on_start_match)
   local input = App.mod.Input
 
   -- Hot reload logic
-  if input:get_key_pressed(KeyCode.R) then
+  if input:get_key_pressed(ScanCode.R) then
     main_menu_doc:Close()
     UI.init(scene, on_start_match)
   end
@@ -115,7 +131,7 @@ function UI.update(scene, on_start_match)
   if UI.current_state == UI.GameState.Lobby then
     local state_changed = false
 
-    if not UI.p1_ready and (input:get_key_pressed(KeyCode.Up) or input:get_key_pressed(KeyCode.Down)) then
+    if not UI.p1_ready and (input:get_key_pressed(ScanCode.Up) or input:get_key_pressed(ScanCode.Down)) then
       UI.p1_ready = true
       p1_status.inner_rml = "Player 1: READY"
       p1_status:SetClass("not-ready", false)
@@ -123,7 +139,7 @@ function UI.update(scene, on_start_match)
       state_changed = true
     end
 
-    if not UI.p2_ready and (input:get_key_pressed(KeyCode.W) or input:get_key_pressed(KeyCode.S)) then
+    if not UI.p2_ready and (input:get_key_pressed(ScanCode.W) or input:get_key_pressed(ScanCode.S)) then
       UI.p2_ready = true
       p2_status.inner_rml = "Player 2: READY"
       p2_status:SetClass("not-ready", false)

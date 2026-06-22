@@ -19,6 +19,12 @@ body {
   border-radius: 16dp;
 }
 
+.game_panel {
+  display: flex;
+  width: 200dp;
+  padding: 50dp;
+}
+
 #main_menu {
   display: flex;
 }
@@ -28,9 +34,12 @@ body {
 #lobby {
   display: none;
 }
+#game_ui {
+  display: none;
+}
 
 h1 {
-  font-size: 64dp;
+  font-size: 24dp;
   font-weight: bold;
   color: #ffffff;
   text-align: center;
@@ -49,20 +58,36 @@ h1 {
 }
 
 .player-card h2 {
-  font-size: 32dp;
+  font-size: 24dp;
   margin: 0;
   margin-bottom: 10dp;
   color: #fb8d45;
 }
 
 .status_text {
-  font-size: 32dp;
+  font-size: 24dp;
 }
 .ready {
   color: #00ff00;
 }
 .not-ready {
   color: #ff0000;
+}
+
+.player-info {
+  background-color: #1e252d;
+  border: 2dp #2a323d;
+  border-radius: 8dp;
+  padding: 20dp;
+  margin-bottom: 16dp;
+  text-align: left;
+}
+
+.player-info h2 {
+  font-size: 24dp;
+  margin: 0;
+  margin-bottom: 10dp;
+  color: #fb8d45;
 }
 
 input.text:focus {
@@ -77,7 +102,7 @@ button.action {
   margin-bottom: 16dp;
 
   text-align: center;
-  font-size: 28dp;
+  font-size: 24dp;
   color: #e2e8f0;
 
   background-color: #fb8d45;

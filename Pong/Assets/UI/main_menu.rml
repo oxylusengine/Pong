@@ -63,5 +63,16 @@
       </button>
       <button id="btn_lobby_back" class="action">Back</button>
     </div>
+
+    <div id="game_ui" class="game_panel">
+    <div class="player-info">
+      <h2>Player 1</h2>
+      <h2>Score:0</h2>
+    </div>
+    <div class="player-info">
+      <h2>Player 1</h2>
+      <h2>Score:0</h2>
+    </div>
+    </div>
   </body>
 </rml>

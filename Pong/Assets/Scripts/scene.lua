@@ -79,6 +79,7 @@ function create_ball(scene)
   local mat = am:get_mut_material(sc.material)
   mat:set_albedo_texture(Assets.ball_sprite_asset)
   mat:set_sampling_mode(SamplingMode.NearestClamped)
+  am:set_material_dirty(sc.material)
 
   ball:add(Core.SphereColliderComponent, {
     radius = 0.25,
@@ -155,7 +156,7 @@ function reset_ball(scene, entity, body, speed)
   tc:set_position(vec3.new(0, 0, 0))
   entity:modified(Core.TransformComponent)
 
-  Log.info("Resetted ball!")
+  Oxlog.info("Resetted ball!")
 end
 
 function add_score(player)
@@ -163,7 +164,7 @@ function add_score(player)
   local new_score = pc.score + 1
   pc:set_score(new_score)
 
-  Log.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
+  Oxlog.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
 end
 
 function on_scene_update(scene)
@@ -221,11 +222,11 @@ function on_scene_start(scene)
           local player_velocity = vec3.new(0)
 
           if pc_data.id == Config.PLAYER_1_ID then
-            if input:get_key_held(KeyCode.Up) then player_velocity.y = pc_data.speed end
-            if input:get_key_held(KeyCode.Down) then player_velocity.y = -pc_data.speed end
+            if input:get_key_held(ScanCode.Up) then player_velocity.y = pc_data.speed end
+            if input:get_key_held(ScanCode.Down) then player_velocity.y = -pc_data.speed end
           elseif pc_data.id == Config.PLAYER_2_ID then
-            if input:get_key_held(KeyCode.W) then player_velocity.y = pc_data.speed end
-            if input:get_key_held(KeyCode.S) then player_velocity.y = -pc_data.speed end
+            if input:get_key_held(ScanCode.W) then player_velocity.y = pc_data.speed end
+            if input:get_key_held(ScanCode.S) then player_velocity.y = -pc_data.speed end
           end
 
           body:set_linear_velocity(player_velocity)
