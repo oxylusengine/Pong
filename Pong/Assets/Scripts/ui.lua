@@ -7,13 +7,21 @@ UI.GameState = {
   MainMenu = 1,
   Lobby = 2,
   Playing = 3,
+  Scoring = 4,
 }
 
 UI.current_state = UI.GameState.MainMenu
+UI.ui_doc = {}
 UI.p1_ready = false
 UI.p2_ready = false
+UI.p1_score = {}
+UI.p2_score = {}
+UI.data_model = {
+  countdown_value = ''
+}
 
-local main_menu_doc
+local rml_main_context
+
 local p1_status
 local p2_status
 local main_menu
@@ -22,20 +30,29 @@ local online_menu
 local btn_start
 
 function UI.init(scene, on_start_match)
-  local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/main_menu.rml")
-  local rml_main_context = rmlui.contexts['main']
-  rmlui_ext.ClearStyleCache(main_menu_doc)
-  rmlui_ext.ClearTemplateCache(main_menu_doc)
-  main_menu_doc = rml_main_context:LoadDocument(ui_document_path)
-  main_menu_doc:Show()
+  local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/ui.rml")
+  rml_main_context = rmlui.contexts['main']
+  rmlui_ext.ClearStyleCache(UI.ui_doc)
+  rmlui_ext.ClearTemplateCache(UI.ui_doc)
 
-  main_menu = main_menu_doc:GetElementById("main_menu")
-  lobby = main_menu_doc:GetElementById("lobby")
-  online_menu = main_menu_doc:GetElementById("online_menu")
-  game_ui = main_menu_doc:GetElementById("game_ui")
-  p1_status = main_menu_doc:GetElementById("p1_status")
-  p2_status = main_menu_doc:GetElementById("p2_status")
-  btn_start = main_menu_doc:GetElementById("btn_start")
+  UI.ui_doc = rml_main_context:LoadDocument(ui_document_path)
+  UI.data_model = rml_main_context:OpenDataModel("game_state", {
+    countdown_value = '0.0'
+  })
+
+  UI.ui_doc:Show()
+
+
+  main_menu = UI.ui_doc:GetElementById("main_menu")
+  lobby = UI.ui_doc:GetElementById("lobby")
+  online_menu = UI.ui_doc:GetElementById("online_menu")
+  game_ui = UI.ui_doc:GetElementById("game_ui")
+  p1_status = UI.ui_doc:GetElementById("p1_status")
+  p2_status = UI.ui_doc:GetElementById("p2_status")
+  btn_start = UI.ui_doc:GetElementById("btn_start")
+
+  UI.p1_score = UI.ui_doc:GetElementById("p1_score")
+  UI.p2_score = UI.ui_doc:GetElementById("p2_score")
 
   local function display_main_menu()
     main_menu.style.display = 'flex'
@@ -65,17 +82,17 @@ function UI.init(scene, on_start_match)
     game_ui.style.display = 'flex'
   end
 
-  main_menu_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
+  UI.ui_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
     display_lobby_menu()
     UI.current_state = UI.GameState.Lobby
   end)
 
-  main_menu_doc:GetElementById("btn_online"):AddEventListener("click", function()
+  UI.ui_doc:GetElementById("btn_online"):AddEventListener("click", function()
     display_online_menu()
     UI.current_state = UI.GameState.Lobby
   end)
 
-  main_menu_doc:GetElementById("btn_lobby_back"):AddEventListener("click", function()
+  UI.ui_doc:GetElementById("btn_lobby_back"):AddEventListener("click", function()
     UI.p1_ready = false
     UI.p2_ready = false
 
@@ -94,18 +111,18 @@ function UI.init(scene, on_start_match)
     UI.current_state = UI.GameState.MainMenu
   end)
 
-  main_menu_doc:GetElementById("btn_online_back"):AddEventListener("click", function()
+  UI.ui_doc:GetElementById("btn_online_back"):AddEventListener("click", function()
     -- TODO: maybe shutdown the server etc. here
 
     display_main_menu()
     UI.current_state = UI.GameState.MainMenu
   end)
 
-  main_menu_doc:GetElementById("btn_exit"):AddEventListener("click", function()
+  UI.ui_doc:GetElementById("btn_exit"):AddEventListener("click", function()
     App:get():should_stop()
   end)
 
-  main_menu_doc:GetElementById("btn_start"):AddEventListener("click", function()
+  UI.ui_doc:GetElementById("btn_start"):AddEventListener("click", function()
     UI.current_state = UI.GameState.Playing
 
     display_game_ui()
@@ -118,12 +135,16 @@ function UI.init(scene, on_start_match)
   Oxlog.info("Initalized UI.")
 end
 
+function UI.deinit()
+  UI.data_model = rml_main_context:CloseDataModel("game_state")
+end
+
 function UI.update(scene, on_start_match)
   local input = App.mod.Input
 
   -- Hot reload logic
   if input:get_key_pressed(ScanCode.R) then
-    main_menu_doc:Close()
+    UI.ui_doc:Close()
     UI.init(scene, on_start_match)
   end
 

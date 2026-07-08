@@ -7,6 +7,49 @@
   ],
   "entities": [
     {
+      "name": "camera",
+      "tags": [],
+      "components": [
+        {
+          "::ox::Core::TransformComponent": {
+            "position": {
+              "x": 0,
+              "y": 0,
+              "z": 8
+            },
+            "rotation": {
+              "x": 0,
+              "y": -0.707107,
+              "z": 0,
+              "w": 0.707107
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        },
+        {
+          "::ox::Core::LayerComponent": {
+            "layer": 1
+          }
+        },
+        {
+          "::ox::Core::CameraComponent": {
+            "projection": 0,
+            "fov": 60,
+            "aspect": 1.90161,
+            "far_clip": 1000,
+            "near_clip": 0.01,
+            "tilt": 0,
+            "zoom": 1
+          }
+        }
+      ],
+      "children": []
+    },
+    {
       "name": "sun",
       "tags": [],
       "components": [
@@ -55,7 +98,20 @@
             "minimum_shadow_distance": 0.01,
             "cascade_overlap_propotion": 0.2,
             "depth_bias": 0.002,
-            "normal_bias": 1.8
+            "normal_bias": 1.8,
+            "first_clipmap_width": 10,
+            "clipmap_selection_bias": -1.5
+          }
+        },
+        {
+          "::ox::Core::SkyComponent": {
+            "solid_color": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "texture": "00000000-0000-0000-0000-000000000000"
           }
         },
         {
@@ -91,49 +147,6 @@
             "max_exposure": 18,
             "adaptation_speed": 1.1,
             "ev100_bias": 1
-          }
-        }
-      ],
-      "children": []
-    },
-    {
-      "name": "camera",
-      "tags": [],
-      "components": [
-        {
-          "::ox::Core::TransformComponent": {
-            "position": {
-              "x": 0,
-              "y": 0,
-              "z": 8
-            },
-            "rotation": {
-              "x": 0,
-              "y": -0.707107,
-              "z": 0,
-              "w": 0.707107
-            },
-            "scale": {
-              "x": 1,
-              "y": 1,
-              "z": 1
-            }
-          }
-        },
-        {
-          "::ox::Core::LayerComponent": {
-            "layer": 1
-          }
-        },
-        {
-          "::ox::Core::CameraComponent": {
-            "projection": 0,
-            "fov": 60,
-            "aspect": 1.91111,
-            "far_clip": 1000,
-            "near_clip": 0.01,
-            "tilt": 0,
-            "zoom": 1
           }
         }
       ],

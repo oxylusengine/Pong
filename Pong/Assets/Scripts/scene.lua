@@ -10,6 +10,8 @@ Config = require_script(WORKING_DIR, "Scripts/config.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
 UI = require_script(WORKING_DIR, "Scripts/ui.lua")
 
+spawn_timer = 0.0
+
 ball = {}
 player1 = {}
 player2 = {}
@@ -36,6 +38,7 @@ function create_player(scene, player_id, starting_point)
   local mat = am:get_mut_material(sc.material)
   mat:set_albedo_texture(Assets.player_sprite_asset)
   mat:set_sampling_mode(SamplingMode.NearestClamped)
+  am:set_material_dirty(sc.material)
 
   local player_tc = player:get_mut(Core.TransformComponent)
   player_tc:set_position(starting_point)
@@ -45,7 +48,7 @@ function create_player(scene, player_id, starting_point)
   player:add(Core.BoxColliderComponent, {
     friction = 0,
     restitution = 1,
-    size = vec3.new(0.25, 1, 1.0),
+    size = vec3.new(0.25, 1, 0.25),
   })
   player:add(Core.RigidBodyComponent, {
     type = 1, -- kinematic
@@ -55,6 +58,7 @@ function create_player(scene, player_id, starting_point)
     linear_drag = 0,
     angular_drag = 0,
     allow_sleep = false,
+    continuous = true,
   })
   player:modified(Core.RigidBodyComponent)
 
@@ -93,6 +97,7 @@ function create_ball(scene)
     linear_drag = 0,
     angular_drag = 0,
     allowed_dofs = AllowedDOFs.TranslationX | AllowedDOFs.TranslationY,
+    allow_sleep = false,
     continuous = true,
   })
   ball:modified(Core.RigidBodyComponent)
@@ -115,6 +120,7 @@ function create_walls(scene)
     restitution = 1,
     linear_drag = 0,
     angular_drag = 0,
+    continuous = true,
   })
   top_wall:modified(Core.RigidBodyComponent)
 
@@ -132,6 +138,7 @@ function create_walls(scene)
     restitution = 1,
     linear_drag = 0,
     angular_drag = 0,
+    continuous = true,
   })
   bottom_wall:modified(Core.RigidBodyComponent)
 end
@@ -148,13 +155,11 @@ function start_match(scene)
   UI.current_state = UI.GameState.Playing
 end
 
-function reset_ball(scene, entity, body, speed)
+function reset_ball(scene, entity, body)
   body:set_position(scene, vec3.new(0, 0, 0))
-  body:set_linear_velocity(vec3.new(speed, 0, 0)) -- starting velocity
+  body:set_linear_velocity(vec3.new(0, 0, 0))
 
-  local tc = entity:get_mut(Core.TransformComponent)
-  tc:set_position(vec3.new(0, 0, 0))
-  entity:modified(Core.TransformComponent)
+  spawn_timer = 2.0
 
   Oxlog.info("Resetted ball!")
 end
@@ -164,11 +169,58 @@ function add_score(player)
   local new_score = pc.score + 1
   pc:set_score(new_score)
 
+  if pc.id == Config.PLAYER_1_ID then
+    UI.p1_score.inner_rml = ": " .. tostring(new_score)
+  end
+  if pc.id == Config.PLAYER_2_ID then
+    UI.p2_score.inner_rml = ": " .. tostring(new_score)
+  end
+
   Oxlog.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
 end
 
-function on_scene_update(scene)
+function on_scene_render()
+  if ImGui.Begin("Debug") then
+    ImGui.Text(tostring(spawn_timer))
+    if UI.current_state == UI.GameState.MainMenu then
+      ImGui.Text("MainMenu")
+    end
+    if UI.current_state == UI.GameState.Lobby then
+      ImGui.Text("Lobby")
+    end
+    if UI.current_state == UI.GameState.Playing then
+      ImGui.Text("Playing")
+    end
+    if UI.current_state == UI.GameState.Scoring then
+      ImGui.Text("Scoring")
+    end
+  end
+  ImGui.End()
+end
+
+function on_scene_update(scene, dt)
   UI.update(scene, start_match)
+
+  if UI.current_state == UI.GameState.Scoring then
+    spawn_timer = spawn_timer - dt
+
+    local current_number = math.ceil(spawn_timer)
+
+    if current_number > 0 then
+      UI.data_model.countdown_value = tostring(current_number)
+    else
+      UI.data_model.countdown_value = ""
+    end
+
+    if spawn_timer <= 0.0 then
+      UI.current_state = UI.GameState.Playing
+
+      local body = Physics.get_body(ball)
+      local bc_data = ball:get(Components.BallComponent)
+
+      body:set_linear_velocity(vec3.new(bc_data.speed, 0, 0))
+    end
+  end
 end
 
 function on_scene_start(scene)
@@ -192,12 +244,14 @@ function on_scene_start(scene)
           local body = Physics.get_body(entity)
 
           if tc_data.position.x > 6 then
-            reset_ball(scene, entity, body, bc_data.speed)
+            UI.current_state = UI.GameState.Scoring
             add_score(player1)
+            reset_ball(scene, entity, body)
           end
           if tc_data.position.x < -6 then
-            reset_ball(scene, entity, body, bc_data.speed)
+            UI.current_state = UI.GameState.Scoring
             add_score(player2)
+            reset_ball(scene, entity, body)
           end
         end
       end)
@@ -205,8 +259,6 @@ function on_scene_start(scene)
   scene
       :world()
       :system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate }, function(it)
-        if UI.current_state ~= UI.GameState.Playing then return end
-
         local tc = it:field(0, Core.TransformComponent)
         local pc = it:field(1, Components.PlayerComponent)
 
@@ -282,6 +334,12 @@ function on_contact_added(scene, body1, body2)
     local new_vel_x = direction_x * ball_speed * math.cos(bounce_angle)
     local new_vel_y = ball_speed * math.sin(bounce_angle)
 
-    ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
+    if new_vel_x > 0 or new_vel_y > 0 then
+      ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
+    end
   end
+end
+
+function on_scene_stop()
+  UI.deinit()
 end

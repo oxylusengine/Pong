@@ -65,14 +65,17 @@
     </div>
 
     <div id="game_ui" class="game_panel">
-    <div class="player-info">
-      <h2>Player 1</h2>
-      <h2>Score:0</h2>
-    </div>
-    <div class="player-info">
-      <h2>Player 1</h2>
-      <h2>Score:0</h2>
-    </div>
+      <div class="player-info" data-model="game_state">
+        <h1>{{countdown_value}}</h1>
+      </div>
+      <div class="player-info">
+        <h2>Player 1</h2>
+        <h2 id="p1_score">: 0</h2>
+      </div>
+      <div class="player-info">
+        <h2>Player 2</h2>
+        <h2 id="p2_score">: 0</h2>
+      </div>
     </div>
   </body>
 </rml>

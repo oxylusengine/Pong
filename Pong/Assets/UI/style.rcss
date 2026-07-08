@@ -35,7 +35,11 @@ body {
   display: none;
 }
 #game_ui {
+  flex-direction: column;
   display: none;
+  position: absolute;
+  top: 20dp;
+  left: 20dp;
 }
 
 h1 {
@@ -76,9 +80,9 @@ h1 {
 
 .player-info {
   background-color: #1e252d;
-  border: 2dp #2a323d;
+  border: 0dp #2a323d;
   border-radius: 8dp;
-  padding: 20dp;
+  padding: 10dp;
   margin-bottom: 16dp;
   text-align: left;
 }
