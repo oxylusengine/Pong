@@ -3,6 +3,7 @@ local UI = {}
 local vfs = App:get_vfs()
 local WORKING_DIR = vfs:PROJECT_DIR()
 
+UI.is_ai = false
 UI.GameState = {
   MainMenu = 1,
   Lobby = 2,
@@ -81,6 +82,17 @@ function UI.init(scene, on_start_match)
     online_menu.style.display = 'none'
     game_ui.style.display = 'flex'
   end
+
+  UI.ui_doc:GetElementById("btn_local_ai"):AddEventListener("click", function()
+    UI.current_state = UI.GameState.Playing
+    UI.is_ai = true
+
+    display_game_ui()
+
+    if on_start_match then
+      on_start_match(scene)
+    end
+  end)
 
   UI.ui_doc:GetElementById("btn_local_coop"):AddEventListener("click", function()
     display_lobby_menu()

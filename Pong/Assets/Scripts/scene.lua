@@ -21,6 +21,8 @@ function on_add(scene)
     id = { type = "u32", default = 0 },
     speed = Config.PLAYER_SPEED,
     score = 0,
+    is_ai = false,
+    ai_target_error = 0.1
   })
   Components.BallComponent = Component.define(scene, "BallComponent", {
     speed = Config.BALL_SPEED,
@@ -148,6 +150,11 @@ function start_match(scene)
 
   player1 = create_player(scene, Config.PLAYER_1_ID, vec3.new(5, 0.0, 0))
   player2 = create_player(scene, Config.PLAYER_2_ID, vec3.new(-5, 0.0, 0))
+
+  local p2_pc = player2:get_mut(Components.PlayerComponent)
+  p2_pc:set_is_ai(UI.is_ai)
+  p2_pc:set_ai_target_error(0.15)
+
   ball = create_ball(scene)
 
   add_starting_velocity(ball, ball:get(Components.BallComponent).speed)
@@ -268,17 +275,33 @@ function on_scene_start(scene)
 
           local entity = it:entity(i - 1)
           local body = Physics.get_body(entity)
-
-          local input = App.mod.Input
-
           local player_velocity = vec3.new(0)
 
-          if pc_data.id == Config.PLAYER_1_ID then
-            if input:get_key_held(ScanCode.Up) then player_velocity.y = pc_data.speed end
-            if input:get_key_held(ScanCode.Down) then player_velocity.y = -pc_data.speed end
-          elseif pc_data.id == Config.PLAYER_2_ID then
-            if input:get_key_held(ScanCode.W) then player_velocity.y = pc_data.speed end
-            if input:get_key_held(ScanCode.S) then player_velocity.y = -pc_data.speed end
+          if not pc_data.is_ai then
+            local input = App.mod.Input
+            if pc_data.id == Config.PLAYER_1_ID then
+              if input:get_key_held(ScanCode.Up) then player_velocity.y = pc_data.speed end
+              if input:get_key_held(ScanCode.Down) then player_velocity.y = -pc_data.speed end
+            elseif pc_data.id == Config.PLAYER_2_ID then
+              if input:get_key_held(ScanCode.W) then player_velocity.y = pc_data.speed end
+              if input:get_key_held(ScanCode.S) then player_velocity.y = -pc_data.speed end
+            end
+          else
+            if ball then
+              local ball_tc = ball:get(Core.TransformComponent)
+              local ball_y = ball_tc.position.y
+              local paddle_y = tc_data.position.y
+
+              local diff_y = ball_y - paddle_y
+
+              if math.abs(diff_y) > pc_data.ai_target_error then
+                if diff_y > 0 then
+                  player_velocity.y = pc_data.speed
+                else
+                  player_velocity.y = -pc_data.speed
+                end
+              end
+            end
           end
 
           body:set_linear_velocity(player_velocity)

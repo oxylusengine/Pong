@@ -6,6 +6,7 @@
   <body>
     <div id="main_menu" class="menu_panel">
       <h1>Pong</h1>
+      <button id="btn_local_ai" class="action">Local vs AI</button>
       <button id="btn_local_coop" class="action">Local Coop</button>
       <button id="btn_online" class="action">Online Multiplayer</button>
       <button id="btn_options" class="action">Options</button>
