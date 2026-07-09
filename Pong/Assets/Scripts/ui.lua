@@ -28,6 +28,7 @@ local p2_status
 local main_menu
 local lobby
 local online_menu
+local game_state_ui
 local btn_start
 
 function UI.init(scene, on_start_match)
@@ -36,18 +37,19 @@ function UI.init(scene, on_start_match)
   rmlui_ext.ClearStyleCache(UI.ui_doc)
   rmlui_ext.ClearTemplateCache(UI.ui_doc)
 
-  UI.ui_doc = rml_main_context:LoadDocument(ui_document_path)
   UI.data_model = rml_main_context:OpenDataModel("game_state", {
-    countdown_value = '0.0'
+    countdown_value = '0.0',
+    won_player_id = 0
   })
 
+  UI.ui_doc = rml_main_context:LoadDocument(ui_document_path)
   UI.ui_doc:Show()
-
 
   main_menu = UI.ui_doc:GetElementById("main_menu")
   lobby = UI.ui_doc:GetElementById("lobby")
   online_menu = UI.ui_doc:GetElementById("online_menu")
   game_ui = UI.ui_doc:GetElementById("game_ui")
+  game_state_ui = UI.ui_doc:GetElementById("game_state_ui")
   p1_status = UI.ui_doc:GetElementById("p1_status")
   p2_status = UI.ui_doc:GetElementById("p2_status")
   btn_start = UI.ui_doc:GetElementById("btn_start")
@@ -81,6 +83,10 @@ function UI.init(scene, on_start_match)
     lobby.style.display = 'none'
     online_menu.style.display = 'none'
     game_ui.style.display = 'flex'
+  end
+
+  local function display_game_state_ui()
+    game_state_ui.style.display = 'flex'
   end
 
   UI.ui_doc:GetElementById("btn_local_ai"):AddEventListener("click", function()

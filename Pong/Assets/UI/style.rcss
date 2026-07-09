@@ -10,6 +10,7 @@ body {
   align-items: center;
 }
 
+/* --- Panel Layouts --- */
 .menu_panel {
   display: flex;
   flex-direction: column;
@@ -25,23 +26,36 @@ body {
   padding: 50dp;
 }
 
+/* --- Visibility & Positioning Toggles --- */
 #main_menu {
   display: flex;
 }
-#online_menu {
-  display: none;
-}
+#online_menu,
 #lobby {
   display: none;
 }
+
 #game_ui {
-  flex-direction: column;
   display: none;
+  flex-direction: column;
   position: absolute;
   top: 20dp;
   left: 20dp;
 }
 
+/* CENTERED HUD STATE OVERLAY */
+#game_state_ui {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* --- Typography --- */
 h1 {
   font-size: 24dp;
   font-weight: bold;
@@ -78,16 +92,33 @@ h1 {
   color: #ff0000;
 }
 
-.player-info {
+.game-info {
   background-color: #1e252d;
   border: 0dp #2a323d;
   border-radius: 8dp;
   padding: 10dp;
   margin-bottom: 16dp;
-  text-align: left;
 }
 
-.player-info h2 {
+.game-state-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  background-color: #1e252d;
+  border: 0dp #2a323d;
+  border-radius: 8dp;
+  padding: 10dp;
+  margin-bottom: 16dp;
+}
+
+.game-state-info h1 {
+  text-align: center;
+  margin: 10dp 0;
+}
+
+.game-info h2 {
+  text-align: left;
   font-size: 24dp;
   margin: 0;
   margin-bottom: 10dp;
@@ -98,6 +129,7 @@ input.text:focus {
   border-color: #fb8d45;
 }
 
+/* --- Buttons --- */
 button.action {
   display: block;
   box-sizing: border-box;
@@ -114,13 +146,12 @@ button.action {
   border-radius: 8dp;
 
   decorator: vertical-gradient(#ae622f #fb8d45);
+  transform-origin: center center;
 
   transition:
     transform 0.1s,
     border-color 0.1s,
     color 0.1s;
-
-  transform-origin: center center;
 }
 
 button.action:last-child {
@@ -132,13 +163,11 @@ button.action:hover {
   border-color: #00000080;
   color: #ffffff;
   transform: scale(1.02);
-
   decorator: vertical-gradient(#fb8d45 #fb8d45);
 }
 
 button.action:active {
   transform: scale(0.98);
   color: #ae622f;
-
   decorator: vertical-gradient(#ae622f #ae622f);
 }
