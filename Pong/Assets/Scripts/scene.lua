@@ -177,13 +177,13 @@ function add_score(player)
   pc:set_score(new_score)
 
   if pc.id == Config.PLAYER_1_ID then
-    UI.p1_score.inner_rml = ": " .. tostring(new_score)
+    UI.data_model.p1_score = new_score
   end
   if pc.id == Config.PLAYER_2_ID then
-    UI.p2_score.inner_rml = ": " .. tostring(new_score)
+    UI.data_model.p2_score = new_score
   end
 
-  UI.data_model.won_player_id = pc.id
+  UI.data_model.won_player_id = pc.id + 1
 
   Oxlog.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
 end

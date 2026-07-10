@@ -15,9 +15,9 @@ UI.current_state = UI.GameState.MainMenu
 UI.ui_doc = {}
 UI.p1_ready = false
 UI.p2_ready = false
-UI.p1_score = {}
-UI.p2_score = {}
 UI.data_model = {
+  p1_score = 0,
+  p2_score = 0,
   won_player_id = 0,
   countdown_value = ''
 }
@@ -39,8 +39,10 @@ function UI.init(scene, on_start_match)
   rmlui_ext.ClearTemplateCache(UI.ui_doc)
 
   UI.data_model = rml_main_context:OpenDataModel("game_state", {
+    p1_score = 0,
+    p2_score = 0,
+    won_player_id = 0,
     countdown_value = '0.0',
-    won_player_id = 0
   })
 
   UI.ui_doc = rml_main_context:LoadDocument(ui_document_path)
@@ -54,9 +56,6 @@ function UI.init(scene, on_start_match)
   p1_status = UI.ui_doc:GetElementById("p1_status")
   p2_status = UI.ui_doc:GetElementById("p2_status")
   btn_start = UI.ui_doc:GetElementById("btn_start")
-
-  UI.p1_score = UI.ui_doc:GetElementById("p1_score")
-  UI.p2_score = UI.ui_doc:GetElementById("p2_score")
 
   local function display_main_menu()
     main_menu.style.display = 'flex'
