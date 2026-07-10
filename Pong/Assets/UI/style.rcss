@@ -14,7 +14,7 @@ body {
 .menu_panel {
   display: flex;
   flex-direction: column;
-  width: 400dp;
+  width: 250dp;
   padding: 50dp;
   background-color: #111418cc;
   border-radius: 16dp;
@@ -38,9 +38,6 @@ body {
 #game_ui {
   display: none;
   flex-direction: column;
-  position: absolute;
-  top: 20dp;
-  left: 20dp;
 }
 
 /* CENTERED HUD STATE OVERLAY */
@@ -91,12 +88,30 @@ h1 {
   color: #ff0000;
 }
 
-.game-info {
+.player-info {
+  color: #fb8d45;
   background-color: #1e252d;
   border: 0dp #2a323d;
   border-radius: 8dp;
+
+  text-align: left;
+  font-size: 20dp;
+
   padding: 10dp;
   margin-bottom: 16dp;
+
+  position: absolute;
+  top: 20dp;
+}
+
+#p1_info {
+  left: 20dp;
+  text-align: left;
+}
+
+#p2_info {
+  right: 20dp;
+  text-align: right;
 }
 
 .game-state-info {
@@ -116,14 +131,6 @@ h1 {
   margin: 10dp 0;
 }
 
-.game-info h2 {
-  text-align: left;
-  font-size: 24dp;
-  margin: 0;
-  margin-bottom: 10dp;
-  color: #fb8d45;
-}
-
 input.text:focus {
   border-color: #fb8d45;
 }
@@ -137,7 +144,7 @@ button.action {
   margin-bottom: 16dp;
 
   text-align: center;
-  font-size: 24dp;
+  font-size: 20dp;
   color: #e2e8f0;
 
   background-color: #fb8d45;

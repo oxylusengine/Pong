@@ -189,22 +189,6 @@ function add_score(player)
 end
 
 function on_scene_render()
-  if ImGui.Begin("Debug") then
-    ImGui.Text(tostring(spawn_timer))
-    if UI.current_state == UI.GameState.MainMenu then
-      ImGui.Text("MainMenu")
-    end
-    if UI.current_state == UI.GameState.Lobby then
-      ImGui.Text("Lobby")
-    end
-    if UI.current_state == UI.GameState.Playing then
-      ImGui.Text("Playing")
-    end
-    if UI.current_state == UI.GameState.Scoring then
-      ImGui.Text("Scoring")
-    end
-  end
-  ImGui.End()
 end
 
 function on_scene_update(scene, dt)
