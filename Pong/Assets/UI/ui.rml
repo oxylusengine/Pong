@@ -76,10 +76,13 @@
       </div>
     </div>
 
-    <div id="game_state_ui">
+    <div id="game_end_ui">
       <div class="game-state-info" data-model="game_state">
         <h1>Player {{won_player_id}} WON!</h1>
-        <br />
+      </div>
+      <div class="game-state-info" data-model="game_state">
+        <h1>Get ready!</h1>
+        <br/>
         <h1>{{countdown_value}}</h1>
       </div>
     </div>

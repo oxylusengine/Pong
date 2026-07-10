@@ -18,6 +18,7 @@ UI.p2_ready = false
 UI.p1_score = {}
 UI.p2_score = {}
 UI.data_model = {
+  won_player_id = 0,
   countdown_value = ''
 }
 
@@ -28,7 +29,7 @@ local p2_status
 local main_menu
 local lobby
 local online_menu
-local game_state_ui
+local game_end_ui
 local btn_start
 
 function UI.init(scene, on_start_match)
@@ -49,7 +50,7 @@ function UI.init(scene, on_start_match)
   lobby = UI.ui_doc:GetElementById("lobby")
   online_menu = UI.ui_doc:GetElementById("online_menu")
   game_ui = UI.ui_doc:GetElementById("game_ui")
-  game_state_ui = UI.ui_doc:GetElementById("game_state_ui")
+  game_end_ui = UI.ui_doc:GetElementById("game_end_ui")
   p1_status = UI.ui_doc:GetElementById("p1_status")
   p2_status = UI.ui_doc:GetElementById("p2_status")
   btn_start = UI.ui_doc:GetElementById("btn_start")
@@ -62,6 +63,7 @@ function UI.init(scene, on_start_match)
     lobby.style.display = 'none'
     online_menu.style.display = 'none'
     game_ui.style.display = 'none'
+    game_end_ui.display = 'none'
   end
 
   local function display_lobby_menu()
@@ -69,6 +71,7 @@ function UI.init(scene, on_start_match)
     lobby.style.display = 'flex'
     online_menu.style.display = 'none'
     game_ui.style.display = 'none'
+    game_end_ui.display = 'none'
   end
 
   local function display_online_menu()
@@ -76,6 +79,7 @@ function UI.init(scene, on_start_match)
     lobby.style.display = 'none'
     online_menu.style.display = 'flex'
     game_ui.style.display = 'none'
+    game_end_ui.display = 'none'
   end
 
   local function display_game_ui()
@@ -83,10 +87,7 @@ function UI.init(scene, on_start_match)
     lobby.style.display = 'none'
     online_menu.style.display = 'none'
     game_ui.style.display = 'flex'
-  end
-
-  local function display_game_state_ui()
-    game_state_ui.style.display = 'flex'
+    game_end_ui.display = 'none'
   end
 
   UI.ui_doc:GetElementById("btn_local_ai"):AddEventListener("click", function()
@@ -191,6 +192,14 @@ function UI.update(scene, on_start_match)
       btn_start.style.display = 'block'
     end
   end
+end
+
+function UI.display_game_end_ui()
+  game_end_ui.style.display = 'flex'
+end
+
+function UI.hide_game_end_ui()
+  game_end_ui.style.display = 'none'
 end
 
 return UI

@@ -22,7 +22,7 @@ function on_add(scene)
     speed = Config.PLAYER_SPEED,
     score = 0,
     is_ai = false,
-    ai_target_error = 0.1
+    ai_target_error = 0.5
   })
   Components.BallComponent = Component.define(scene, "BallComponent", {
     speed = Config.BALL_SPEED,
@@ -183,6 +183,8 @@ function add_score(player)
     UI.p2_score.inner_rml = ": " .. tostring(new_score)
   end
 
+  UI.data_model.won_player_id = pc.id
+
   Oxlog.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
 end
 
@@ -214,13 +216,17 @@ function on_scene_update(scene, dt)
     local current_number = math.ceil(spawn_timer)
 
     if current_number > 0 then
-      UI.data_model.countdown_value = tostring(current_number)
+      UI.data_model.countdown_value = string.format("%d", current_number)
     else
       UI.data_model.countdown_value = ""
     end
 
+    UI.display_game_end_ui()
+
     if spawn_timer <= 0.0 then
       UI.current_state = UI.GameState.Playing
+
+      UI.hide_game_end_ui()
 
       local body = Physics.get_body(ball)
       local bc_data = ball:get(Components.BallComponent)
@@ -249,6 +255,17 @@ function on_scene_start(scene)
 
           local entity = it:entity(i - 1)
           local body = Physics.get_body(entity)
+
+          local current_velocity = body:get_linear_velocity()
+          local MIN_X_SPEED = 1.5
+          if math.abs(current_velocity.x) < MIN_X_SPEED then
+            local escape_direction = (tc_data.position.x > 0) and -1 or 1
+
+            local corrected_x = escape_direction * MIN_X_SPEED
+            body:set_linear_velocity(vec3.new(corrected_x, current_velocity.y, 0))
+
+            Oxlog.warn("Vertical lock detected! Injected horizontal velocity nudge.")
+          end
 
           if tc_data.position.x > 6 then
             UI.current_state = UI.GameState.Scoring
@@ -357,9 +374,7 @@ function on_contact_added(scene, body1, body2)
     local new_vel_x = direction_x * ball_speed * math.cos(bounce_angle)
     local new_vel_y = ball_speed * math.sin(bounce_angle)
 
-    if new_vel_x > 0 or new_vel_y > 0 then
-      ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
-    end
+    ball_body:set_linear_velocity(vec3.new(new_vel_x, new_vel_y, 0))
   end
 end
 

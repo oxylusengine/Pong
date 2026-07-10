@@ -44,12 +44,11 @@ body {
 }
 
 /* CENTERED HUD STATE OVERLAY */
-#game_state_ui {
-  display: flex;
+#game_end_ui {
+  display: none;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
