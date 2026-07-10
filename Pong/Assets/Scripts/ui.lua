@@ -3,6 +3,8 @@ local UI = {}
 local vfs = App:get_vfs()
 local WORKING_DIR = vfs:PROJECT_DIR()
 
+NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
+
 UI.is_ai = false
 UI.GameState = {
   MainMenu = 1,
@@ -106,6 +108,7 @@ function UI.init(scene, on_start_match)
   end)
 
   UI.ui_doc:GetElementById("btn_online"):AddEventListener("click", function()
+    NetworkController.init()
     display_online_menu()
     UI.current_state = UI.GameState.Lobby
   end)
@@ -129,8 +132,20 @@ function UI.init(scene, on_start_match)
     UI.current_state = UI.GameState.MainMenu
   end)
 
+  UI.ui_doc:GetElementById("btn_host"):AddEventListener("click", function()
+    local port = 4242
+    local max_clients = 2
+    NetworkController.start_host(port, max_clients)
+  end)
+
+  UI.ui_doc:GetElementById("btn_join"):AddEventListener("click", function()
+    local IP = "127.0.0.1"
+    local port = 4242
+    NetworkController.connect_to_server(IP, 4242)
+  end)
+
   UI.ui_doc:GetElementById("btn_online_back"):AddEventListener("click", function()
-    -- TODO: maybe shutdown the server etc. here
+    NetworkController.deinit()
 
     display_main_menu()
     UI.current_state = UI.GameState.MainMenu
@@ -140,7 +155,7 @@ function UI.init(scene, on_start_match)
     App:get():should_stop()
   end)
 
-  UI.ui_doc:GetElementById("btn_start"):AddEventListener("click", function()
+  btn_start:AddEventListener("click", function()
     UI.current_state = UI.GameState.Playing
 
     display_game_ui()
@@ -154,19 +169,19 @@ function UI.init(scene, on_start_match)
 end
 
 function UI.deinit()
+  UI.ui_doc:Close()
   UI.data_model = rml_main_context:CloseDataModel("game_state")
 end
 
 function UI.update(scene, on_start_match)
   local input = App.mod.Input
 
-  -- Hot reload logic
+  -- Hot reload
   if input:get_key_pressed(ScanCode.R) then
-    UI.ui_doc:Close()
+    UI.deinit()
     UI.init(scene, on_start_match)
   end
 
-  -- Lobby input polling
   if UI.current_state == UI.GameState.Lobby then
     local state_changed = false
 
@@ -186,10 +201,15 @@ function UI.update(scene, on_start_match)
       state_changed = true
     end
 
-    -- If someone just readied up, check if we should show the Start button
     if state_changed and UI.p1_ready and UI.p2_ready then
       btn_start.style.display = 'block'
     end
+  end
+end
+
+function UI.draw_debuggers()
+  if NetworkController.client then
+    OxUI.draw_network_stats(NetworkController.client)
   end
 end
 

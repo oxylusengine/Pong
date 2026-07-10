@@ -82,7 +82,7 @@
       </div>
       <div class="game-state-info">
         <h1>Get ready!</h1>
-        <br/>
+        <br />
         <h1>{{countdown_value}}</h1>
       </div>
     </div>

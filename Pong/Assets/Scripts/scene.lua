@@ -9,6 +9,7 @@ Components = {
 Config = require_script(WORKING_DIR, "Scripts/config.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
 UI = require_script(WORKING_DIR, "Scripts/ui.lua")
+NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
 
 spawn_timer = 0.0
 
@@ -167,8 +168,6 @@ function reset_ball(scene, entity, body)
   body:set_linear_velocity(vec3.new(0, 0, 0))
 
   spawn_timer = 2.0
-
-  Oxlog.info("Resetted ball!")
 end
 
 function add_score(player)
@@ -188,7 +187,12 @@ function add_score(player)
   Oxlog.info("Added score to player! ID:" .. pc.id .. " NewScore: " .. new_score)
 end
 
-function on_scene_render()
+function on_scene_render(scene)
+  if not scene:is_running() then
+    return
+  end
+
+  UI.draw_debuggers()
 end
 
 function on_scene_update(scene, dt)
@@ -308,6 +312,12 @@ function on_scene_start(scene)
           body:set_linear_velocity(player_velocity)
         end
       end)
+
+  scene
+      :world()
+      :system("server_tick", { Core.LightComponent }, { flecs.OnUpdate }, function(it)
+        NetworkController.tick()
+      end)
 end
 
 function on_contact_added(scene, body1, body2)
@@ -332,25 +342,16 @@ function on_contact_added(scene, body1, body2)
     local ball_pos = ball_body:get_position()
     local paddle_pos = paddle_body:get_position()
 
-    -- Calculate relative impact point on paddle (from -0.5 to 0.5 roughly)
     local diff_y = ball_pos.y - paddle_pos.y
 
-    -- Normalize it based on paddle height
-    -- Paddle height is 1.0
     local paddle_half_height = 0.5
     local relative_intersect = diff_y / paddle_half_height
 
-    -- Clamp it between -1 and 1 to prevent weird bugs if it hits the very corner
     relative_intersect = math.max(-1, math.min(1, relative_intersect))
 
-    -- Calculate new bounce angle
-    local MAX_BOUNCE_ANGLE = math.rad(60) -- 60 degrees in radians
+    local MAX_BOUNCE_ANGLE = math.rad(60)
     local bounce_angle = relative_intersect * MAX_BOUNCE_ANGLE
 
-    -- Calculate new Velocity Vector
-    -- We need to know which direction to shoot (Left or Right)
-    -- If paddle is on the Left (x < 0), shoot Right (positive X)
-    -- If paddle is on the Right (x > 0), shoot Left (negative X)
     local direction_x = (paddle_pos.x < 0) and 1 or -1
 
     local ball_speed = Config.BALL_SPEED
@@ -364,4 +365,5 @@ end
 
 function on_scene_stop()
   UI.deinit()
+  NetworkController.deinit()
 end
