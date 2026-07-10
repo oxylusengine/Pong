@@ -1,33 +1,20 @@
 local vfs = App:get_vfs()
 WORKING_DIR = vfs:PROJECT_DIR()
 
-Components = {
-  PlayerComponent,
-  BallComponent,
-}
-
 Config = require_script(WORKING_DIR, "Scripts/config.lua")
+Components = require_script(WORKING_DIR, "Scripts/components.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
 UI = require_script(WORKING_DIR, "Scripts/ui.lua")
 NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
 
-spawn_timer = 0.0
+local spawn_timer = 0.0
 
-ball = {}
-player1 = {}
-player2 = {}
+local ball = {}
+local player1 = {}
+local player2 = {}
 
 function on_add(scene)
-  Components.PlayerComponent = Component.define(scene, "PlayerComponent", {
-    id = { type = "u32", default = 0 },
-    speed = Config.PLAYER_SPEED,
-    score = 0,
-    is_ai = false,
-    ai_target_error = 0.5
-  })
-  Components.BallComponent = Component.define(scene, "BallComponent", {
-    speed = Config.BALL_SPEED,
-  })
+  Components.init(scene)
 end
 
 function create_player(scene, player_id, starting_point)
@@ -76,7 +63,7 @@ end
 function create_ball(scene)
   local am = App.mod.AssetManager
 
-  local ball = scene:create_entity("ball", true)
+  ball = scene:create_entity("ball", true)
   local tc = ball:get_mut(Core.TransformComponent)
   tc:set_scale(vec3.new(0.5, 0.5, 0.5))
   ball:add(Components.BallComponent)
