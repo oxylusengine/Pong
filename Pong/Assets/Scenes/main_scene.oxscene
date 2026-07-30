@@ -1,5 +1,39 @@
 {
   "name": "Untitled",
+  "config": {
+    "debug": {
+      "enable_debug_renderer": false,
+      "draw_bounding_boxes": false,
+      "enable_physics_debug_renderer": false
+    },
+    "color": {
+      "tonemapper": 0,
+      "exposure": 1,
+      "gamma": 2.2
+    },
+    "gtao": {
+      "enabled": true,
+      "quality_level": 3,
+      "thickness": 0.25,
+      "radius": 0.5,
+      "final_power": 1.2
+    },
+    "bloom": {
+      "enabled": true,
+      "threshold": 1,
+      "soft_threshold": 0.125,
+      "radius": 0.75
+    },
+    "fxaa": {
+      "enabled": true
+    },
+    "contact_shadows": {
+      "enabled": true,
+      "steps": 8,
+      "thickness": 0.1,
+      "length": 0.01
+    }
+  },
   "scripts": [
     {
       "uuid": "8f5b3567-b67a-4c4d-83a6-5a37cee845fa"
@@ -39,7 +73,7 @@
           "::ox::Core::CameraComponent": {
             "projection": 0,
             "fov": 60,
-            "aspect": 1.90161,
+            "aspect": 2.16867,
             "far_clip": 1000,
             "near_clip": 0.01,
             "tilt": 0,
@@ -91,14 +125,9 @@
             "outer_cone_angle": 70,
             "inner_cone_angle": 0,
             "cast_shadows": true,
-            "shadow_map_res": 2048,
-            "cascade_count": 4,
             "first_cascade_far_bound": 10,
             "maximum_shadow_distance": 1000,
             "minimum_shadow_distance": 0.01,
-            "cascade_overlap_propotion": 0.2,
-            "depth_bias": 0.002,
-            "normal_bias": 1.8,
             "first_clipmap_width": 10,
             "clipmap_selection_bias": -1.5
           }
