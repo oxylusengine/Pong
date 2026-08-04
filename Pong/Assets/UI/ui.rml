@@ -16,28 +16,51 @@
     <div id="online_menu" class="menu_panel">
       <h1>Network</h1>
 
-      <button id="btn_host" class="action">Host Game</button>
-
-      <div
-        style="
-          margin-top: 20dp;
-          margin-bottom: 20dp;
-          text-align: center;
-          font-size: 20dp;
-          color: #7f8c8d;
-        "
-      >
-        — OR JOIN SERVER —
+      <div class="field-row">
+        <span class="field-label">IP</span>
+        <input type="text" id="ip_input" value="127.0.0.1" />
+      </div>
+      <div class="field-row">
+        <span class="field-label">Port</span>
+        <input type="text" id="port_input" value="4242" />
       </div>
 
-      <input type="text" id="ip_input" value="127.0.0.1" />
-      <button id="btn_join" class="action">Connect</button>
+      <button id="btn_host" class="action">Host Game</button>
+      <button id="btn_join" class="action">Join Game</button>
 
       <div id="online_status" class="status-text" style="margin-top: 20dp"></div>
 
       <button id="btn_online_back" class="action" style="margin-top: 20dp">
         Back
       </button>
+    </div>
+
+    <div id="online_lobby" class="menu_panel">
+      <h1>Online Lobby</h1>
+
+      <div id="lobby_address" class="status-text" style="margin-bottom: 20dp"></div>
+
+      <div class="player-card">
+        <h2>Player 1 (Host)</h2>
+        <div id="net_p1_status" class="status-text not-ready">Not ready</div>
+      </div>
+
+      <div class="player-card">
+        <h2>Player 2 (Guest)</h2>
+        <div id="net_p2_status" class="status-text not-ready">
+          Waiting for opponent...
+        </div>
+      </div>
+
+      <button id="btn_net_ready" class="action">Ready</button>
+      <button
+        id="btn_net_start"
+        class="action"
+        style="display: none; margin-top: 10dp"
+      >
+        Start Match!
+      </button>
+      <button id="btn_net_leave" class="action">Leave</button>
     </div>
 
     <div id="lobby" class="menu_panel">

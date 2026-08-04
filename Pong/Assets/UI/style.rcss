@@ -31,6 +31,7 @@ body {
   display: flex;
 }
 #online_menu,
+#online_lobby,
 #lobby {
   display: none;
 }
@@ -130,6 +131,32 @@ h1 {
 .game-state-info h1 {
   text-align: center;
   margin: 10dp 0;
+}
+
+/* --- Form Fields --- */
+.field-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16dp;
+}
+
+.field-label {
+  width: 60dp;
+  font-size: 20dp;
+  color: #7f8c8d;
+}
+
+input.text {
+  box-sizing: border-box;
+  flex: 1;
+  padding: 10dp;
+
+  font-size: 20dp;
+  color: #e2e8f0;
+
+  background-color: #1e252d;
+  border: 2dp #2a323d;
+  border-radius: 8dp;
 }
 
 input.text:focus {

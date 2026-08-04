@@ -12,6 +12,7 @@ UI.GameState = {
   Playing = 3,
   Scoring = 4,
   Online = 5,
+  OnlineLobby = 6,
 }
 
 -- Which paddle this machine drives. nil in local play, where we drive both.
@@ -35,12 +36,26 @@ local p2_status
 local main_menu
 local lobby
 local online_menu
+local online_lobby
 local online_status
+local lobby_address
+local net_p1_status
+local net_p2_status
+local btn_net_ready
+local btn_net_start
 local ip_input
+local port_input
 local game_end_ui
 local btn_start
 
-function UI.init(scene, on_start_match)
+-- Shown in the lobby, remembered from whatever was typed in the online menu.
+local joined_address = nil
+
+local function input_value(element)
+  return Element.As.ElementFormControlInput(element).value
+end
+
+function UI.init(scene, on_start_match, on_stop_match)
   local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/ui.rml")
   rml_scene_context = rmlui.contexts[scene:get_rml_context_name()]
   rmlui_ext.ClearStyleCache(UI.ui_doc)
@@ -59,49 +74,69 @@ function UI.init(scene, on_start_match)
   main_menu = UI.ui_doc:GetElementById("main_menu")
   lobby = UI.ui_doc:GetElementById("lobby")
   online_menu = UI.ui_doc:GetElementById("online_menu")
+  online_lobby = UI.ui_doc:GetElementById("online_lobby")
   online_status = UI.ui_doc:GetElementById("online_status")
+  lobby_address = UI.ui_doc:GetElementById("lobby_address")
+  net_p1_status = UI.ui_doc:GetElementById("net_p1_status")
+  net_p2_status = UI.ui_doc:GetElementById("net_p2_status")
+  btn_net_ready = UI.ui_doc:GetElementById("btn_net_ready")
+  btn_net_start = UI.ui_doc:GetElementById("btn_net_start")
   ip_input = UI.ui_doc:GetElementById("ip_input")
+  port_input = UI.ui_doc:GetElementById("port_input")
   game_ui = UI.ui_doc:GetElementById("game_ui")
   game_end_ui = UI.ui_doc:GetElementById("game_end_ui")
   p1_status = UI.ui_doc:GetElementById("p1_status")
   p2_status = UI.ui_doc:GetElementById("p2_status")
   btn_start = UI.ui_doc:GetElementById("btn_start")
 
-  local function display_main_menu()
-    main_menu.style.display = 'flex'
-    lobby.style.display = 'none'
-    online_menu.style.display = 'none'
-    game_ui.style.display = 'none'
-    game_end_ui.display = 'none'
+  local function display_only(panel)
+    main_menu.style.display = (panel == main_menu) and 'flex' or 'none'
+    lobby.style.display = (panel == lobby) and 'flex' or 'none'
+    online_menu.style.display = (panel == online_menu) and 'flex' or 'none'
+    online_lobby.style.display = (panel == online_lobby) and 'flex' or 'none'
+    game_ui.style.display = (panel == game_ui) and 'flex' or 'none'
+    game_end_ui.style.display = 'none'
   end
 
-  local function display_lobby_menu()
-    main_menu.style.display = 'none'
-    lobby.style.display = 'flex'
-    online_menu.style.display = 'none'
-    game_ui.style.display = 'none'
-    game_end_ui.display = 'none'
+  local function display_main_menu() display_only(main_menu) end
+  local function display_lobby_menu() display_only(lobby) end
+  local function display_online_menu() display_only(online_menu) end
+  local function display_online_lobby() display_only(online_lobby) end
+  local function display_game_ui() display_only(game_ui) end
+
+  local function set_online_status(text)
+    online_status.inner_rml = text or ""
   end
 
-  local function display_online_menu()
-    main_menu.style.display = 'none'
-    lobby.style.display = 'none'
-    online_menu.style.display = 'flex'
-    game_ui.style.display = 'none'
-    game_end_ui.display = 'none'
+  local function set_ready_class(element, is_ready)
+    element:SetClass("ready", is_ready)
+    element:SetClass("not-ready", not is_ready)
   end
 
-  local function display_game_ui()
-    main_menu.style.display = 'none'
-    lobby.style.display = 'none'
-    online_menu.style.display = 'none'
-    game_ui.style.display = 'flex'
-    game_end_ui.display = 'none'
+  local function refresh_lobby()
+    local p1_ready, p2_ready = NetworkController.ready_states()
+
+    net_p1_status.inner_rml = p1_ready and "READY" or "Not ready"
+    set_ready_class(net_p1_status, p1_ready)
+
+    if NetworkController.peer_connected then
+      net_p2_status.inner_rml = p2_ready and "READY" or "Not ready"
+      set_ready_class(net_p2_status, p2_ready)
+    else
+      net_p2_status.inner_rml = "Waiting for opponent..."
+      set_ready_class(net_p2_status, false)
+    end
+
+    btn_net_ready.inner_rml = NetworkController.local_ready and "Cancel Ready" or "Ready"
+
+    local can_start = NetworkController.is_host() and NetworkController.both_ready()
+    btn_net_start.style.display = can_start and 'block' or 'none'
   end
 
   UI.ui_doc:GetElementById("btn_local_ai"):AddEventListener("click", function()
     UI.current_state = UI.GameState.Playing
     UI.is_ai = true
+    UI.local_player_id = nil
 
     display_game_ui()
 
@@ -115,15 +150,11 @@ function UI.init(scene, on_start_match)
     UI.current_state = UI.GameState.Lobby
   end)
 
-  local function set_online_status(text)
-    online_status.inner_rml = text or ""
-  end
-
-  -- Fired on both machines once the two sides are linked, so this is where an online
-  -- match actually begins. The host owns player 1, whoever joined owns player 2.
-  local function on_session_start(mode)
+  -- Fired on both machines once the host starts the match. The host owns player 1, the joiner
+  -- owns player 2.
+  local function on_match_start()
     UI.is_ai = false
-    UI.local_player_id = (mode == NetworkController.Mode.Host) and Config.PLAYER_1_ID or Config.PLAYER_2_ID
+    UI.local_player_id = NetworkController.is_host() and Config.PLAYER_1_ID or Config.PLAYER_2_ID
     UI.current_state = UI.GameState.Playing
 
     set_online_status("")
@@ -134,17 +165,43 @@ function UI.init(scene, on_start_match)
     end
   end
 
-  local function on_session_end(reason)
+  local function return_to_online_menu(reason)
     UI.local_player_id = nil
-    UI.current_state = UI.GameState.Online
 
+    if on_stop_match then
+      on_stop_match(scene)
+    end
+
+    NetworkController.leave()
+
+    UI.current_state = UI.GameState.Online
     display_online_menu()
     set_online_status(reason)
+    refresh_lobby()
   end
 
+  NetworkController.on_peer_connected = function()
+    if NetworkController.is_client() then
+      lobby_address.inner_rml = "Connected to " .. (joined_address or "host")
+    end
+
+    set_online_status("")
+    UI.current_state = UI.GameState.OnlineLobby
+
+    display_online_lobby()
+    refresh_lobby()
+  end
+
+  NetworkController.on_lobby_update = refresh_lobby
+  NetworkController.on_match_start = on_match_start
+  NetworkController.on_peer_disconnected = return_to_online_menu
+  NetworkController.on_session_end = return_to_online_menu
+
+  -- on_score / on_round_reset belong to the gameplay side, scene.lua owns those.
+
   UI.ui_doc:GetElementById("btn_online"):AddEventListener("click", function()
-    NetworkController.on_session_start = on_session_start
-    NetworkController.on_session_end = on_session_end
+    -- Leaving the online menu tears the subscriptions down, so re-arm them on every entry.
+    -- NetworkController.init is idempotent.
     NetworkController.init()
 
     display_online_menu()
@@ -158,12 +215,10 @@ function UI.init(scene, on_start_match)
 
     -- Reset UI text and colors
     p1_status.inner_rml = "Player 1: Press Up/Down to Ready"
-    p1_status:SetClass("ready", false)
-    p1_status:SetClass("not-ready", true)
+    set_ready_class(p1_status, false)
 
     p2_status.inner_rml = "Player 2: Press W/S to Ready"
-    p2_status:SetClass("ready", false)
-    p2_status:SetClass("not-ready", true)
+    set_ready_class(p2_status, false)
 
     btn_start.style.display = 'none'
 
@@ -171,16 +226,69 @@ function UI.init(scene, on_start_match)
     UI.current_state = UI.GameState.MainMenu
   end)
 
+  -- Ports outside this range cannot be bound, catch it before enet does.
+  local function read_port()
+    local port = tonumber(input_value(port_input))
+    if not port or port ~= math.floor(port) or port < 1 or port > 65535 then
+      return nil
+    end
+
+    return port
+  end
+
   UI.ui_doc:GetElementById("btn_host"):AddEventListener("click", function()
-    local port = 4242
-    local max_clients = 2
-    NetworkController.start_host(port, max_clients)
+    local port = read_port()
+    if not port then
+      set_online_status("Port must be a whole number between 1 and 65535.")
+      return
+    end
+
+    if not NetworkController.start_host(port) then
+      set_online_status("Could not host on port " .. port .. ".")
+      return
+    end
+
+    joined_address = nil
+    lobby_address.inner_rml = "Hosting on port " .. port
+    UI.current_state = UI.GameState.OnlineLobby
+
+    display_online_lobby()
+    refresh_lobby()
   end)
 
   UI.ui_doc:GetElementById("btn_join"):AddEventListener("click", function()
-    local IP = "127.0.0.1"
-    local port = 4242
-    NetworkController.connect_to_server(IP, 4242)
+    local port = read_port()
+    if not port then
+      set_online_status("Port must be a whole number between 1 and 65535.")
+      return
+    end
+
+    local ip = input_value(ip_input)
+    if ip == "" then
+      set_online_status("Enter the host's IP address.")
+      return
+    end
+
+    joined_address = ip .. ":" .. port
+
+    if not NetworkController.connect_to_server(ip, port) then
+      set_online_status("Could not start connecting to " .. joined_address .. ".")
+      return
+    end
+
+    set_online_status("Connecting to " .. joined_address .. "...")
+  end)
+
+  btn_net_ready:AddEventListener("click", function()
+    NetworkController.set_local_ready(not NetworkController.local_ready)
+  end)
+
+  btn_net_start:AddEventListener("click", function()
+    NetworkController.request_start_match()
+  end)
+
+  UI.ui_doc:GetElementById("btn_net_leave"):AddEventListener("click", function()
+    return_to_online_menu("")
   end)
 
   UI.ui_doc:GetElementById("btn_online_back"):AddEventListener("click", function()
@@ -196,6 +304,8 @@ function UI.init(scene, on_start_match)
 
   btn_start:AddEventListener("click", function()
     UI.current_state = UI.GameState.Playing
+    UI.is_ai = false
+    UI.local_player_id = nil
 
     display_game_ui()
 
@@ -212,13 +322,13 @@ function UI.deinit()
   UI.data_model = rml_scene_context:CloseDataModel("game_state")
 end
 
-function UI.update(scene, on_start_match)
+function UI.update(scene, on_start_match, on_stop_match)
   local input = App.mod.Input
 
   -- Hot reload
   if input:get_key_pressed(ScanCode.R) then
     UI.deinit()
-    UI.init(scene, on_start_match)
+    UI.init(scene, on_start_match, on_stop_match)
   end
 
   if UI.current_state == UI.GameState.Lobby then
