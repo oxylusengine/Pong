@@ -57,24 +57,23 @@ auto Game::update(const ox::Timestep& timestep) -> void {
 
   auto& vk_context = ox::App::get_rendercontext();
   auto& imgui_renderer = ox::App::mod<ox::ImGuiRenderer>();
-  auto& rml = ox::App::mod<ox::RmlUI>();
-  auto& rml_renderer = rml.get_renderer();
   auto& window = ox::App::get_window();
 
   auto swapchain_attachment = vk_context.new_frame();
   swapchain_attachment = vuk::clear_image(std::move(swapchain_attachment), vuk::Black<f32>);
 
-  rml_renderer.begin_frame();
+  imgui_renderer.begin_frame(timestep.get_seconds(), window.get_logical_size(), window.get_real_size());
 
-  imgui_renderer.begin_frame(timestep.get_seconds(), {window.get_logical_width(), window.get_logical_height()}, window.get_real_size());
+  main_scene->set_rml_dpi_ratio(window.get_dpi_scale());
 
-  const ox::Renderer::RenderInfo render_info = {};
-  auto scene_view_image = main_scene->render(std::move(swapchain_attachment), render_info);
-
-  rml.render_contexts();
+  auto scene_view_image = main_scene->render(
+    std::move(swapchain_attachment),
+    glm::ivec2{0, 0},
+    window.get_logical_size(),
+    window.get_real_size()
+  );
 
   scene_view_image = imgui_renderer.end_frame(vk_context, std::move(scene_view_image));
-  scene_view_image = rml_renderer.end_frame(vk_context, std::move(scene_view_image));
 
   vk_context.end_frame(scene_view_image);
 }

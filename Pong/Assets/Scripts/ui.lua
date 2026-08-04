@@ -28,7 +28,7 @@ UI.data_model = {
   countdown_value = ''
 }
 
-local rml_main_context
+local rml_scene_context
 
 local p1_status
 local p2_status
@@ -42,18 +42,18 @@ local btn_start
 
 function UI.init(scene, on_start_match)
   local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/ui.rml")
-  rml_main_context = rmlui.contexts['main']
+  rml_scene_context = rmlui.contexts[scene:get_rml_context_name()]
   rmlui_ext.ClearStyleCache(UI.ui_doc)
   rmlui_ext.ClearTemplateCache(UI.ui_doc)
 
-  UI.data_model = rml_main_context:OpenDataModel("game_state", {
+  UI.data_model = rml_scene_context:OpenDataModel("game_state", {
     p1_score = 0,
     p2_score = 0,
     won_player_id = 0,
     countdown_value = '0.0',
   })
 
-  UI.ui_doc = rml_main_context:LoadDocument(ui_document_path)
+  UI.ui_doc = rml_scene_context:LoadDocument(ui_document_path)
   UI.ui_doc:Show()
 
   main_menu = UI.ui_doc:GetElementById("main_menu")
@@ -209,7 +209,7 @@ end
 
 function UI.deinit()
   UI.ui_doc:Close()
-  UI.data_model = rml_main_context:CloseDataModel("game_state")
+  UI.data_model = rml_scene_context:CloseDataModel("game_state")
 end
 
 function UI.update(scene, on_start_match)
