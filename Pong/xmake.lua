@@ -16,4 +16,7 @@ target("Pong")
     add_rules("@oxylus/install_shaders", {
         output_dir = "Assets/Shaders",
     })
+    add_rules("@oxylus/install_fonts", {
+        output_dir = "Assets/Fonts",
+    })
 target_end()

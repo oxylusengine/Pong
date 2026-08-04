@@ -4,7 +4,9 @@
 #include <Core/App.hpp>
 #include <Core/Input.hpp>
 #include <Core/Project.hpp>
+#include <RmlUi/Core.h>
 #include <UI/ImGuiRenderer.hpp>
+#include <UI/RmlUI.hpp>
 #include <UI/SceneHierarchyViewer.hpp>
 #include <imgui.h>
 #include <vuk/vsl/Core.hpp>
@@ -18,6 +20,13 @@ auto Game::init() -> std::expected<void, std::string> {
 
   auto scenes_dir = vfs.resolve_physical_dir(ox::VFS::APP_DIR, "Scenes");
   auto scripts_dir = vfs.resolve_physical_dir(ox::VFS::APP_DIR, "Scripts");
+  auto fonts_dir = vfs.resolve_physical_dir(ox::VFS::APP_DIR, "Fonts");
+
+  for (const auto* font : {"FiraSans-Regular.ttf", "FiraSans-Bold.ttf"}) {
+    if (!Rml::LoadFontFace((fonts_dir / font).string())) {
+      return std::unexpected(std::format("Failed to load RmlUI font face '{}'!", font));
+    }
+  }
 
   // This could be replaced by an API from Oxylus that can iterate over the given assets directory and
   // import the assets
@@ -46,25 +55,26 @@ auto Game::update(const ox::Timestep& timestep) -> void {
 
   main_scene->runtime_update(timestep);
 
-  auto& vk_context = ox::App::get_vkcontext();
+  auto& vk_context = ox::App::get_rendercontext();
   auto& imgui_renderer = ox::App::mod<ox::ImGuiRenderer>();
+  auto& rml = ox::App::mod<ox::RmlUI>();
+  auto& rml_renderer = rml.get_renderer();
   auto& window = ox::App::get_window();
 
   auto swapchain_attachment = vk_context.new_frame();
   swapchain_attachment = vuk::clear_image(std::move(swapchain_attachment), vuk::Black<f32>);
 
-  vuk::Format format = swapchain_attachment->format;
-  vuk::Extent3D extent = swapchain_attachment->extent;
+  rml_renderer.begin_frame();
 
   imgui_renderer.begin_frame(timestep.get_seconds(), {window.get_logical_width(), window.get_logical_height()}, window.get_real_size());
 
-  main_scene->on_render(extent, format);
-
-  auto renderer_instance = main_scene->get_renderer_instance();
   const ox::Renderer::RenderInfo render_info = {};
-  auto scene_view_image = renderer_instance->render(std::move(swapchain_attachment), render_info);
+  auto scene_view_image = main_scene->render(std::move(swapchain_attachment), render_info);
+
+  rml.render_contexts();
 
   scene_view_image = imgui_renderer.end_frame(vk_context, std::move(scene_view_image));
+  scene_view_image = rml_renderer.end_frame(vk_context, std::move(scene_view_image));
 
   vk_context.end_frame(scene_view_image);
 }

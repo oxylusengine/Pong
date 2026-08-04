@@ -1,5 +1,6 @@
 #include <Core/App.hpp>
 #include <Core/DefaultModules.hpp>
+#include <Core/Enum.hpp>
 
 #include "Game.hpp"
 

@@ -1,7 +1,7 @@
 local UI = {}
 
 local vfs = App:get_vfs()
-local WORKING_DIR = vfs:PROJECT_DIR()
+local WORKING_DIR = vfs:is_mounted_dir(vfs:PROJECT_DIR()) and vfs:PROJECT_DIR() or vfs:APP_DIR()
 
 NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
 

@@ -1,5 +1,5 @@
 local vfs = App:get_vfs()
-WORKING_DIR = vfs:PROJECT_DIR()
+WORKING_DIR = vfs:is_mounted_dir(vfs:PROJECT_DIR()) and vfs:PROJECT_DIR() or vfs:APP_DIR()
 
 Config = require_script(WORKING_DIR, "Scripts/config.lua")
 Components = require_script(WORKING_DIR, "Scripts/components.lua")
