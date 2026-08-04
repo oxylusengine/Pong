@@ -11,7 +11,11 @@ UI.GameState = {
   Lobby = 2,
   Playing = 3,
   Scoring = 4,
+  Online = 5,
 }
+
+-- Which paddle this machine drives. nil in local play, where we drive both.
+UI.local_player_id = nil
 
 UI.current_state = UI.GameState.MainMenu
 UI.ui_doc = {}
@@ -31,6 +35,8 @@ local p2_status
 local main_menu
 local lobby
 local online_menu
+local online_status
+local ip_input
 local game_end_ui
 local btn_start
 
@@ -53,6 +59,8 @@ function UI.init(scene, on_start_match)
   main_menu = UI.ui_doc:GetElementById("main_menu")
   lobby = UI.ui_doc:GetElementById("lobby")
   online_menu = UI.ui_doc:GetElementById("online_menu")
+  online_status = UI.ui_doc:GetElementById("online_status")
+  ip_input = UI.ui_doc:GetElementById("ip_input")
   game_ui = UI.ui_doc:GetElementById("game_ui")
   game_end_ui = UI.ui_doc:GetElementById("game_end_ui")
   p1_status = UI.ui_doc:GetElementById("p1_status")
@@ -107,10 +115,41 @@ function UI.init(scene, on_start_match)
     UI.current_state = UI.GameState.Lobby
   end)
 
-  UI.ui_doc:GetElementById("btn_online"):AddEventListener("click", function()
-    NetworkController.init()
+  local function set_online_status(text)
+    online_status.inner_rml = text or ""
+  end
+
+  -- Fired on both machines once the two sides are linked, so this is where an online
+  -- match actually begins. The host owns player 1, whoever joined owns player 2.
+  local function on_session_start(mode)
+    UI.is_ai = false
+    UI.local_player_id = (mode == NetworkController.Mode.Host) and Config.PLAYER_1_ID or Config.PLAYER_2_ID
+    UI.current_state = UI.GameState.Playing
+
+    set_online_status("")
+    display_game_ui()
+
+    if on_start_match then
+      on_start_match(scene)
+    end
+  end
+
+  local function on_session_end(reason)
+    UI.local_player_id = nil
+    UI.current_state = UI.GameState.Online
+
     display_online_menu()
-    UI.current_state = UI.GameState.Lobby
+    set_online_status(reason)
+  end
+
+  UI.ui_doc:GetElementById("btn_online"):AddEventListener("click", function()
+    NetworkController.on_session_start = on_session_start
+    NetworkController.on_session_end = on_session_end
+    NetworkController.init()
+
+    display_online_menu()
+    set_online_status("")
+    UI.current_state = UI.GameState.Online
   end)
 
   UI.ui_doc:GetElementById("btn_lobby_back"):AddEventListener("click", function()
