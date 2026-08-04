@@ -3,14 +3,16 @@
 import common;
 import gpu;
 
+// Resources only. Mixing plain data into a ParameterBlock pushes it into an implicit uniform
+// buffer in a separate binding slot, so the per-frame scalars go through push constants instead.
 struct CRTParameters {
   Texture2D<f32x4> source;
   Sampler linear_sampler;
+};
 
+struct PushConstants {
   f32x2 output_size;
   f32x2 texture_size;
-  f32x2 input_size;
-  u32 frame_count;
   f32 timer; // In milliseconds
 };
 
@@ -23,10 +25,13 @@ static const int crt_preblur_luma_only = 1;
 static const float crt_preblur_bilateral = 0.0;
 
 // Mask
-static const float crt_triad_width = 1.5;
-static const float crt_mask_strength = 0.5;
-static const float crt_mask_boost = 1.2;
-static const float crt_phosphor_sharpness = 2.0;
+// Triad width is specified at 4K and scaled down by crt_mask_apply, so 12.0 lands on a
+// 3px triad (one pixel per phosphor stripe) at 1080p instead of washing out sub-pixel.
+static const float crt_triad_width = 12.0;
+static const float crt_mask_strength = 0.85;
+// Compensates for the light the mask and beam envelope swallow; both are applied in linear space.
+static const float crt_mask_boost = 2.0;
+static const float crt_phosphor_sharpness = 3.0;
 static const float3 crt_phosphor_colour = float3(1.0, 1.0, 1.0);
 static const int crt_mask_type = 0;
 static const float crt_slot_mask_strength = 0.5;
@@ -34,18 +39,23 @@ static const float crt_mask_dither = 0.0;
 
 // Scanlines
 static const float crt_scanline_width = 4.0;
-static const float crt_scanline_strength = 0.5;
-static const float crt_beam_min_sigma = 0.5;
-static const float crt_beam_max_sigma = 1.0;
+static const float crt_scanline_strength = 0.8;
+// Tighter beam -> darker gutters between scanlines, and more bloom spread on bright pixels.
+static const float crt_beam_min_sigma = 0.4;
+static const float crt_beam_max_sigma = 0.9;
 static const float crt_beam_shape = 2.0;
 static const float crt_spot_size = 0.0;
+// Per-row brightness/width variation from HV supply ripple. A static texture, not motion:
+// drift is held at upstream's default of 0 so the pattern never moves.
+static const float crt_scanline_roll_strength = 0.03;
+static const float crt_scanline_roll_drift = 0.0;
 
 // Gamma & BCS
 static const float crt_gamma_in = 2.2;
 static const float crt_gamma_out = 2.2;
-static const float crt_brightness = 0.0;
-static const float crt_contrast = 0.0;
-static const float crt_saturation = 0.0;
+static const float crt_brightness = 0.1;
+static const float crt_contrast = 0.15;
+static const float crt_saturation = 0.2;
 
 // Glow & Halation
 static const float crt_glow_strength = 0.0;
@@ -68,6 +78,35 @@ f32 crt_erf(f32 x) {
 f32 gauss_integral(f32 f, f32 hw, f32 sigma) {
   f32 s = max(sigma * 1.41421356, 0.0001);
   return 0.5 * (crt_erf((f + hw) / s) - crt_erf((f - hw) / s));
+}
+
+// --- Per-Scanline Row Variation ---
+
+// Standalone integer hash, used by crt_scanline_roll.
+u32 crt_row_hash(u32 x) {
+  x ^= x >> 16u;
+  x *= 0x45D9F3Bu;
+  x ^= x >> 16u;
+  return x;
+}
+
+// Per-scanline brightness variation. Spatially correlated low-frequency hash -- adjacent rows
+// similar, not random. Models HV supply ripple and phosphor coating unevenness in real CRTs.
+f32 crt_scanline_roll(f32 row) {
+  f32 r = floor(row);
+
+  // Cast through i32: row 0 asks for row -1, and converting a negative float straight to u32 is
+  // undefined in SPIR-V. Going via i32 gives the two's-complement wrap the hash expects.
+  u32 seed0 = crt_row_hash(u32(i32(r)));
+  u32 seed1 = crt_row_hash(u32(i32(r + 1.0)));
+  u32 seedm = crt_row_hash(u32(i32(r - 1.0)));
+
+  f32 v0 = f32(seed0 & 0xFFFFu) / 32767.5 - 1.0;
+  f32 v1 = f32(seed1 & 0xFFFFu) / 32767.5 - 1.0;
+  f32 vm = f32(seedm & 0xFFFFu) / 32767.5 - 1.0;
+
+  // Weighted average: 50% current row, 25% each neighbour.
+  return v0 * 0.5 + (v1 + vm) * 0.25;
 }
 
 f32x3 crt_rgb_to_ycbcr(f32x3 rgb) {
@@ -148,12 +187,9 @@ f32x3 crt_mask_apply(f32x2 output_size, float2 fc, f32 tw_ref, f32 strength, f32
 #include <fullscreen.slang>
 
 [[shader("fragment")]]
-f32x4 fs_main(VertexOutput input, uniform ParameterBlock<CRTParameters> params)
+f32x4 fs_main(VertexOutput input, uniform ParameterBlock<CRTParameters> params, uniform PushConstants config)
     : SV_Target {
-  u32x2 pixel_coords = u32x2(input.position.xy);
-
-  float2 fc = input.tex_coord * params.output_size;
-  float2 px = float2(1.0 / params.texture_size.x, 1.0 / params.texture_size.y);
+  float2 fc = input.tex_coord * config.output_size;
 
   f32x3 c = params.source.Sample(params.linear_sampler, input.tex_coord).rgb;
 
@@ -168,7 +204,7 @@ f32x4 fs_main(VertexOutput input, uniform ParameterBlock<CRTParameters> params)
   // Apply Mask
   if (crt_mask_strength > 0.001) {
     f32x3 mask = crt_mask_apply(
-      params.output_size,
+      config.output_size,
       fc,
       crt_triad_width,
       crt_mask_strength,
@@ -185,14 +221,25 @@ f32x4 fs_main(VertexOutput input, uniform ParameterBlock<CRTParameters> params)
   f32 f = frac(scanline_y / scan_width) - 0.5;
   f32 hw = 0.5 / max(scan_width, 1.0);
 
-  f32 sigma_scale = 1.0 / max(scan_width, 1.0);
-  f32 r_sigma = lerp(crt_beam_min_sigma, crt_beam_max_sigma, saturate(c_lin.r)) * sigma_scale;
-  f32 g_sigma = lerp(crt_beam_min_sigma, crt_beam_max_sigma, saturate(c_lin.g)) * sigma_scale;
-  f32 b_sigma = lerp(crt_beam_min_sigma, crt_beam_max_sigma, saturate(c_lin.b)) * sigma_scale;
+  // Per-scanline variation: brightness AND sigma (beam width) vary per row. On a real CRT, HV
+  // ripple affects both beam focus and brightness -- brighter rows are also slightly wider,
+  // dimmer rows slightly narrower. roll_raw is in [-1,1]; roll scales brightness, sigma_roll width.
+  f32 scanline_row = floor(scanline_y / scan_width);
+  f32 roll_raw = (crt_scanline_roll_strength > 0.0001)
+                     ? crt_scanline_roll(scanline_row + floor(config.timer * 0.001 * crt_scanline_roll_drift))
+                     : 0.0;
+  f32 roll = 1.0 + crt_scanline_roll_strength * roll_raw;
+  // Sigma modulation is half the brightness variation so it doesn't dominate.
+  f32 sigma_roll = 1.0 + crt_scanline_roll_strength * roll_raw * 0.5;
 
-  f32 beam_r = gauss_integral(f, hw, r_sigma);
-  f32 beam_g = gauss_integral(f, hw, g_sigma);
-  f32 beam_b = gauss_integral(f, hw, b_sigma);
+  f32 sigma_scale = 1.0 / max(scan_width, 1.0);
+  f32 r_sigma = lerp(crt_beam_min_sigma, crt_beam_max_sigma, saturate(c_lin.r)) * sigma_scale * sigma_roll;
+  f32 g_sigma = lerp(crt_beam_min_sigma, crt_beam_max_sigma, saturate(c_lin.g)) * sigma_scale * sigma_roll;
+  f32 b_sigma = lerp(crt_beam_min_sigma, crt_beam_max_sigma, saturate(c_lin.b)) * sigma_scale * sigma_roll;
+
+  f32 beam_r = gauss_integral(f, hw, r_sigma) * roll;
+  f32 beam_g = gauss_integral(f, hw, g_sigma) * roll;
+  f32 beam_b = gauss_integral(f, hw, b_sigma) * roll;
 
   c_lin *= lerp(f32x3(1.0, 1.0, 1.0), f32x3(beam_r, beam_g, beam_b), crt_scanline_strength);
 

@@ -12,5 +12,8 @@ public:
   auto update(const ox::Timestep& timestep) -> void;
 
   std::unique_ptr<ox::Scene> main_scene = nullptr;
+
+  u32 frame_count = 0;
+  f32 elapsed_ms = 0.f;
 };
-} // namespace rog
+} // namespace pong

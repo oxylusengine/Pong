@@ -16,6 +16,11 @@ target("Pong")
     add_rules("@oxylus/install_shaders", {
         output_dir = "Assets/Shaders",
     })
+    -- Assets/game.toml -> Assets/Shaders/game.oxpack, loaded by Game::init.
+    add_files("./Assets/*.toml")
+    add_rules("@oxylus/compile_shaders", {
+        output_dir = "Assets/Shaders",
+    })
     add_rules("@oxylus/install_fonts", {
         output_dir = "Assets/Fonts",
     })
