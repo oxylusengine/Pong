@@ -318,6 +318,10 @@ function UI:reload()
 end
 
 function UI:update()
+  if not self.scene.input_focused then
+    return
+  end
+
   local input = App.mod.Input
 
   -- Hot reload

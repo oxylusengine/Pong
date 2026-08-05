@@ -127,9 +127,8 @@ function NetworkController:init()
   local es = App:get_event_system()
 
   track(self.base_subscriptions, es:subscribe_server_connect_event(function(e)
-    -- The event bus is global and carries no owner, so ignore it unless we are the side waiting on
-    -- a connection. Without this a hosting scene in another viewport also flips to Client.
-    if not self.client then
+    -- The bus is shared by every scene, so only act on our own client's events.
+    if e.client ~= self.client then
       return
     end
 
@@ -142,7 +141,7 @@ function NetworkController:init()
   end))
 
   track(self.base_subscriptions, es:subscribe_server_disconnect_event(function(e)
-    if not self.client then
+    if e.client ~= self.client then
       return
     end
 
@@ -230,8 +229,7 @@ function NetworkController:start_host(port)
   self:register_host_procs(self.server)
 
   track(self.session_subscriptions, es:subscribe_client_connect_event(function(e)
-    -- Global bus again: only the scene actually running a server owns this.
-    if not self.server then
+    if e.server ~= self.server then
       return
     end
 
@@ -247,7 +245,7 @@ function NetworkController:start_host(port)
   end))
 
   track(self.session_subscriptions, es:subscribe_client_disconnect_event(function(e)
-    if not self.server then
+    if e.server ~= self.server then
       return
     end
 

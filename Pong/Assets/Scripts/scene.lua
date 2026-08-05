@@ -222,7 +222,11 @@ function add_score(player)
 end
 
 -- Online each machine drives a single paddle, so it answers to both key sets.
-function read_paddle_input(player_id)
+function read_paddle_input(scene, player_id)
+  if not scene.input_focused then
+    return 0
+  end
+
   local input = App.mod.Input
   local online = net:is_online()
   local dir = 0
@@ -304,7 +308,7 @@ function on_scene_update(scene, dt)
     apply_host_state(scene)
 
     if net_tick and ui.local_player_id then
-      net:send_input(read_paddle_input(ui.local_player_id))
+      net:send_input(read_paddle_input(scene, ui.local_player_id))
     end
   end
 
@@ -440,7 +444,7 @@ function on_scene_start(scene)
               end
             end
           elseif is_local then
-            player_velocity.y = read_paddle_input(pc_data.id) * pc_data.speed
+            player_velocity.y = read_paddle_input(scene, pc_data.id) * pc_data.speed
           elseif net:is_host() then
             -- The opponent's paddle, moved by the input they keep sending us.
             player_velocity.y = net:remote_input() * pc_data.speed
