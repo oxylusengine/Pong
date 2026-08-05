@@ -2,10 +2,15 @@ local vfs = App:get_vfs()
 WORKING_DIR = vfs:is_mounted_dir(vfs:PROJECT_DIR()) and vfs:PROJECT_DIR() or vfs:APP_DIR()
 
 Config = require_script(WORKING_DIR, "Scripts/config.lua")
-Components = require_script(WORKING_DIR, "Scripts/components.lua")
 Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
-UI = require_script(WORKING_DIR, "Scripts/ui.lua")
-NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
+
+local Components = require_script(WORKING_DIR, "Scripts/components.lua")
+local UI = require_script(WORKING_DIR, "Scripts/ui.lua")
+local NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
+
+local components = nil
+local ui = nil
+local net = nil
 
 local spawn_timer = 0.0
 
@@ -21,7 +26,7 @@ local remote_paddle_target_y = nil
 local match_entities = {}
 
 function on_add(scene)
-  Components.init(scene)
+  components = Components.new(scene)
 end
 
 local function track_entity(entity)
@@ -33,7 +38,7 @@ function create_player(scene, player_id, starting_point)
   local am = App.mod.AssetManager
 
   local player = track_entity(scene:create_entity("player", true))
-  player:add(Components.PlayerComponent, { id = player_id, speed = Config.PLAYER_SPEED })
+  player:add(components.PlayerComponent, { id = player_id, speed = Config.PLAYER_SPEED })
   player:add(Core.SpriteComponent)
 
   local sc = player:get_mut(Core.SpriteComponent)
@@ -78,7 +83,7 @@ function create_ball(scene)
   ball = track_entity(scene:create_entity("ball", true))
   local tc = ball:get_mut(Core.TransformComponent)
   tc:set_scale(vec3.new(0.5, 0.5, 0.5))
-  ball:add(Components.BallComponent)
+  ball:add(components.BallComponent)
   ball:add(Core.SpriteComponent)
 
   local sc = ball:get_mut(Core.SpriteComponent)
@@ -157,11 +162,11 @@ function stop_match(scene)
   spawn_timer = 0.0
   remote_paddle_target_y = nil
 
-  UI.data_model.p1_score = 0
-  UI.data_model.p2_score = 0
-  UI.data_model.won_player_id = 0
-  UI.data_model.countdown_value = ''
-  UI.hide_game_end_ui()
+  ui.data_model.p1_score = 0
+  ui.data_model.p2_score = 0
+  ui.data_model.won_player_id = 0
+  ui.data_model.countdown_value = ''
+  ui:hide_game_end_ui()
 end
 
 function start_match(scene)
@@ -173,15 +178,15 @@ function start_match(scene)
   player1 = create_player(scene, Config.PLAYER_1_ID, vec3.new(5, 0.0, 0))
   player2 = create_player(scene, Config.PLAYER_2_ID, vec3.new(-5, 0.0, 0))
 
-  local p2_pc = player2:get_mut(Components.PlayerComponent)
-  p2_pc:set_is_ai(UI.is_ai)
+  local p2_pc = player2:get_mut(components.PlayerComponent)
+  p2_pc:set_is_ai(ui.is_ai)
   p2_pc:set_ai_target_error(0.15)
 
   ball = create_ball(scene)
 
-  add_starting_velocity(ball, ball:get(Components.BallComponent).speed)
+  add_starting_velocity(ball, ball:get(components.BallComponent).speed)
 
-  UI.current_state = UI.GameState.Playing
+  ui.current_state = UI.GameState.Playing
 end
 
 function reset_ball(scene, entity, body)
@@ -192,23 +197,23 @@ function reset_ball(scene, entity, body)
 end
 
 function add_score(player)
-  local pc = player:get_mut(Components.PlayerComponent)
+  local pc = player:get_mut(components.PlayerComponent)
   local new_score = pc.score + 1
   pc:set_score(new_score)
 
   if pc.id == Config.PLAYER_1_ID then
-    UI.data_model.p1_score = new_score
+    ui.data_model.p1_score = new_score
   end
   if pc.id == Config.PLAYER_2_ID then
-    UI.data_model.p2_score = new_score
+    ui.data_model.p2_score = new_score
   end
 
-  UI.data_model.won_player_id = pc.id + 1
+  ui.data_model.won_player_id = pc.id + 1
 
-  if NetworkController.is_host() then
-    NetworkController.broadcast_score(
-      player1:get(Components.PlayerComponent).score,
-      player2:get(Components.PlayerComponent).score,
+  if net:is_host() then
+    net:broadcast_score(
+      player1:get(components.PlayerComponent).score,
+      player2:get(components.PlayerComponent).score,
       pc.id + 1
     )
   end
@@ -219,7 +224,7 @@ end
 -- Online each machine drives a single paddle, so it answers to both key sets.
 function read_paddle_input(player_id)
   local input = App.mod.Input
-  local online = NetworkController.is_online()
+  local online = net:is_online()
   local dir = 0
 
   if online or player_id == Config.PLAYER_1_ID then
@@ -238,7 +243,7 @@ end
 -- Client side only: the host owns the simulation, we follow each snapshot and dead reckon in
 -- between on the velocities it sent.
 local function apply_host_state(scene)
-  local state = NetworkController.consume_state()
+  local state = net:consume_state()
   if not state or not ball or not player1 or not player2 then
     return
   end
@@ -247,7 +252,7 @@ local function apply_host_state(scene)
   ball_body:set_position(scene, vec3.new(state.ball_x, state.ball_y, 0))
   ball_body:set_linear_velocity(vec3.new(state.ball_vx, state.ball_vy, 0))
 
-  local own_is_p1 = UI.local_player_id == Config.PLAYER_1_ID
+  local own_is_p1 = ui.local_player_id == Config.PLAYER_1_ID
   local own_player = own_is_p1 and player1 or player2
   local own_y = own_is_p1 and state.p1_y or state.p2_y
 
@@ -269,7 +274,7 @@ local function broadcast_world_state()
 
   local ball_body = Physics.get_body(ball)
 
-  NetworkController.broadcast_state(
+  net:broadcast_state(
     Physics.get_body(player1):get_position().y,
     Physics.get_body(player2):get_position().y,
     ball_body:get_position(),
@@ -282,51 +287,56 @@ function on_scene_render(scene)
     return
   end
 
-  UI.draw_debuggers()
+  ui:draw_debuggers()
 end
 
 function on_scene_update(scene, dt)
-  local net_tick = NetworkController.tick()
+  -- Play mode enables the update phases before runtime_start, so this can fire before on_scene_start.
+  if not ui or not net then
+    return
+  end
 
-  UI.update(scene, start_match, stop_match)
+  local net_tick = net:tick()
 
-  if NetworkController.is_client() then
+  ui:update()
+
+  if net:is_client() then
     apply_host_state(scene)
 
-    if net_tick and UI.local_player_id then
-      NetworkController.send_input(read_paddle_input(UI.local_player_id))
+    if net_tick and ui.local_player_id then
+      net:send_input(read_paddle_input(ui.local_player_id))
     end
   end
 
-  if UI.current_state == UI.GameState.Scoring then
+  if ui.current_state == UI.GameState.Scoring then
     spawn_timer = spawn_timer - dt
 
     local current_number = math.ceil(spawn_timer)
 
     if current_number > 0 then
-      UI.data_model.countdown_value = string.format("%d", current_number)
+      ui.data_model.countdown_value = string.format("%d", current_number)
     else
-      UI.data_model.countdown_value = ""
+      ui.data_model.countdown_value = ""
     end
 
-    UI.display_game_end_ui()
+    ui:display_game_end_ui()
 
     -- The host decides when the next round starts, clients wait for the `round` call.
-    if spawn_timer <= 0.0 and not NetworkController.is_client() and ball then
-      UI.current_state = UI.GameState.Playing
+    if spawn_timer <= 0.0 and not net:is_client() and ball then
+      ui.current_state = UI.GameState.Playing
 
-      UI.hide_game_end_ui()
+      ui:hide_game_end_ui()
 
       local body = Physics.get_body(ball)
-      local bc_data = ball:get(Components.BallComponent)
+      local bc_data = ball:get(components.BallComponent)
 
       body:set_linear_velocity(vec3.new(bc_data.speed, 0, 0))
 
-      NetworkController.broadcast_round_reset()
+      net:broadcast_round_reset()
     end
   end
 
-  if net_tick and NetworkController.is_host() then
+  if net_tick and net:is_host() then
     broadcast_world_state()
   end
 end
@@ -334,33 +344,34 @@ end
 function on_scene_start(scene)
   Assets.load_assets(WORKING_DIR)
 
-  UI.init(scene, start_match, stop_match)
+  net = NetworkController.new()
+  ui = UI.new(scene, net, start_match, stop_match)
 
-  NetworkController.on_score = function(p1_score, p2_score, won_player_id)
-    UI.data_model.p1_score = p1_score
-    UI.data_model.p2_score = p2_score
-    UI.data_model.won_player_id = won_player_id
+  net.on_score = function(p1_score, p2_score, won_player_id)
+    ui.data_model.p1_score = p1_score
+    ui.data_model.p2_score = p2_score
+    ui.data_model.won_player_id = won_player_id
 
-    UI.current_state = UI.GameState.Scoring
+    ui.current_state = UI.GameState.Scoring
     spawn_timer = 2.0
   end
 
-  NetworkController.on_round_reset = function()
-    UI.current_state = UI.GameState.Playing
+  net.on_round_reset = function()
+    ui.current_state = UI.GameState.Playing
     spawn_timer = 0.0
 
-    UI.hide_game_end_ui()
+    ui:hide_game_end_ui()
   end
 
   scene
       :world()
-      :system("ball_system", { Core.TransformComponent, Components.BallComponent }, { flecs.OnUpdate }, function(it)
-        if UI.current_state ~= UI.GameState.Playing then return end
+      :system("ball_system", { Core.TransformComponent, components.BallComponent }, { flecs.OnUpdate }, function(it)
+        if not ui or ui.current_state ~= UI.GameState.Playing then return end
         -- Goals and the anti-stall nudge are authority calls, the host owns them.
-        if NetworkController.is_client() then return end
+        if net:is_client() then return end
 
         local tc = it:field(0, Core.TransformComponent)
-        local bc = it:field(1, Components.BallComponent)
+        local bc = it:field(1, components.BallComponent)
 
         for i = 1, it:count(), 1 do
           local tc_data = tc:at(i - 1)
@@ -381,12 +392,12 @@ function on_scene_start(scene)
           end
 
           if tc_data.position.x > 6 then
-            UI.current_state = UI.GameState.Scoring
+            ui.current_state = UI.GameState.Scoring
             add_score(player1)
             reset_ball(scene, entity, body)
           end
           if tc_data.position.x < -6 then
-            UI.current_state = UI.GameState.Scoring
+            ui.current_state = UI.GameState.Scoring
             add_score(player2)
             reset_ball(scene, entity, body)
           end
@@ -395,9 +406,11 @@ function on_scene_start(scene)
 
   scene
       :world()
-      :system("player_system", { Core.TransformComponent, Components.PlayerComponent }, { flecs.OnUpdate }, function(it)
+      :system("player_system", { Core.TransformComponent, components.PlayerComponent }, { flecs.OnUpdate }, function(it)
+        if not ui or not net then return end
+
         local tc = it:field(0, Core.TransformComponent)
-        local pc = it:field(1, Components.PlayerComponent)
+        local pc = it:field(1, components.PlayerComponent)
 
         for i = 1, it:count(), 1 do
           local tc_data = tc:at(i - 1)
@@ -408,7 +421,7 @@ function on_scene_start(scene)
           local player_velocity = vec3.new(0)
 
           -- In local play we drive both paddles, online only the one this machine owns.
-          local is_local = UI.local_player_id == nil or pc_data.id == UI.local_player_id
+          local is_local = ui.local_player_id == nil or pc_data.id == ui.local_player_id
 
           if pc_data.is_ai then
             if ball then
@@ -428,9 +441,9 @@ function on_scene_start(scene)
             end
           elseif is_local then
             player_velocity.y = read_paddle_input(pc_data.id) * pc_data.speed
-          elseif NetworkController.is_host() then
+          elseif net:is_host() then
             -- The opponent's paddle, moved by the input they keep sending us.
-            player_velocity.y = NetworkController.remote_input() * pc_data.speed
+            player_velocity.y = net:remote_input() * pc_data.speed
           elseif remote_paddle_target_y then
             -- Client side: ease the opponent's paddle towards the last position the host sent.
             local diff_y = remote_paddle_target_y - tc_data.position.y
@@ -452,11 +465,11 @@ function on_contact_added(scene, body1, body2)
   local e1 = Physics.get_entity_from_body(body1, scene:world())
   local e2 = Physics.get_entity_from_body(body2, scene:world())
 
-  if e1:has(Components.BallComponent) and e2:has(Components.PlayerComponent) then
+  if e1:has(components.BallComponent) and e2:has(components.PlayerComponent) then
     ball_body = body1
     paddle_body = body2
     paddle_entity = e2
-  elseif e2:has(Components.BallComponent) and e1:has(Components.PlayerComponent) then
+  elseif e2:has(components.BallComponent) and e1:has(components.PlayerComponent) then
     ball_body = body2
     paddle_body = body1
     paddle_entity = e1
@@ -464,7 +477,7 @@ function on_contact_added(scene, body1, body2)
 
   if ball_body and paddle_body then
     -- Bounces are part of the simulation, so only the authority computes them.
-    if NetworkController.is_client() then
+    if net:is_client() then
       return
     end
 
@@ -493,6 +506,12 @@ function on_contact_added(scene, body1, body2)
 end
 
 function on_scene_stop()
-  UI.deinit()
-  NetworkController.deinit()
+  if ui then
+    ui:deinit()
+    ui = nil
+  end
+  if net then
+    net:deinit()
+    net = nil
+  end
 end
