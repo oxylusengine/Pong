@@ -73,6 +73,22 @@ function add_starting_velocity(ball, speed)
   body:set_linear_velocity(vec3.new(speed, 0, 0))
 end
 
+function create_background(scene)
+  local am = App.mod.AssetManager
+
+  background = scene:create_entity("background", true)
+  local tc = background:get_mut(Core.TransformComponent)
+  tc:set_scale(vec3.new(24, 18, 0.5))
+  tc:set_position(vec3.new(0, 0, -1))
+  background:modified(Core.TransformComponent)
+  background:add(Core.SpriteComponent)
+  local sc = background:get_mut(Core.SpriteComponent)
+  local mat = am:get_mut_material(sc.material)
+  mat:set_albedo_texture(Assets.background_asset)
+  mat:set_sampling_mode(SamplingMode.NearestClamped)
+  am:set_material_dirty(sc.material)
+end
+
 function create_ball(scene)
   local am = App.mod.AssetManager
 
@@ -337,6 +353,8 @@ end
 
 function on_scene_start(scene)
   Assets.load_assets(WORKING_DIR)
+
+  create_background(scene)
 
   net = NetworkController.new()
   ui = UI.new(scene, net, start_match, stop_match)

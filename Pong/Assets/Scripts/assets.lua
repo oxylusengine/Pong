@@ -1,6 +1,7 @@
 Assets = {
   player_sprite_asset = {},
   ball_sprite_asset = {},
+  background_asset = {},
 }
 
 function Assets.load_assets(WORKING_DIR)
@@ -13,6 +14,8 @@ function Assets.load_assets(WORKING_DIR)
   asset_man:load_asset(Assets.player_sprite_asset)
   Assets.ball_sprite_asset = asset_man:import_asset(sprites_dir .. "/ball.png.oxasset")
   asset_man:load_asset(Assets.ball_sprite_asset)
+  Assets.background_asset = asset_man:import_asset(sprites_dir .. "/space_background.png.oxasset")
+  asset_man:load_asset(Assets.background_asset)
 end
 
 return Assets
