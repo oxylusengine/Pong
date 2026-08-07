@@ -35,6 +35,16 @@ local function fire(callback, ...)
   end
 end
 
+local function record_remote_paddle(self, y)
+  if not y then
+    return
+  end
+
+  self.remote_paddle_prev_y = self.remote_paddle_y or y
+  self.remote_paddle_y = y
+  self.remote_paddle_age = 0
+end
+
 function NetworkController.new()
   local self = setmetatable({}, NetworkController)
 
@@ -57,9 +67,9 @@ function NetworkController.new()
   self.remote_ready = false
 
   self.peer_client_id = nil
-  -- Latest paddle direction received from the client, host only.
-  self.remote_input_dir = 0
-  -- Latest world state received from the host, client only.
+  self.remote_paddle_prev_y = nil
+  self.remote_paddle_y = nil
+  self.remote_paddle_age = 0
   self.latest_state = nil
 
   -- init() subscriptions live for as long as the online menu is open, session ones only for as long
@@ -105,7 +115,9 @@ function NetworkController:reset_lobby()
   self.local_ready = false
   self.remote_ready = false
   self.peer_client_id = nil
-  self.remote_input_dir = 0
+  self.remote_paddle_prev_y = nil
+  self.remote_paddle_y = nil
+  self.remote_paddle_age = 0
   self.latest_state = nil
 end
 
@@ -175,8 +187,8 @@ function NetworkController:register_host_procs(server)
     fire(self.on_lobby_update)
   end)
 
-  server:register_proc("input", function(client_id, params)
-    self.remote_input_dir = params[1] or 0
+  server:register_proc("paddle", function(client_id, params)
+    record_remote_paddle(self, params[1])
   end)
 end
 
@@ -193,13 +205,13 @@ function NetworkController:register_client_procs(client)
   end)
 
   client:register_proc("state", function(_, params)
+    record_remote_paddle(self, params[1])
+
     self.latest_state = {
-      p1_y = params[1] or 0,
-      p2_y = params[2] or 0,
-      ball_x = params[3] or 0,
-      ball_y = params[4] or 0,
-      ball_vx = params[5] or 0,
-      ball_vy = params[6] or 0,
+      ball_x = params[2] or 0,
+      ball_y = params[3] or 0,
+      ball_vx = params[4] or 0,
+      ball_vy = params[5] or 0,
     }
   end)
 
@@ -254,7 +266,8 @@ function NetworkController:start_host(port)
     self.peer_client_id = nil
     self.peer_connected = false
     self.remote_ready = false
-    self.remote_input_dir = 0
+    self.remote_paddle_prev_y = nil
+    self.remote_paddle_y = nil
 
     fire(self.on_peer_disconnected, "Opponent left the game.")
   end))
@@ -345,18 +358,26 @@ function NetworkController:request_start_match()
   return true
 end
 
-function NetworkController:send_input(dir)
+function NetworkController:send_paddle(y)
   if self.client then
-    self.client:call_server("input", { dir }, false)
+    self.client:call_server("paddle", { y }, false)
   end
 end
 
-function NetworkController:remote_input()
-  return self.remote_input_dir
+function NetworkController:opponent_paddle()
+  if not self.remote_paddle_y then
+    return nil, 0
+  end
+
+  local window = Config.NET.PADDLE_INTERP_WINDOW
+  local span = self.remote_paddle_y - self.remote_paddle_prev_y
+  local t = math.min(self.remote_paddle_age / window, 1)
+
+  local velocity = (t < 1) and (span / window) or 0
+
+  return self.remote_paddle_prev_y + span * t, velocity
 end
 
--- Returns the state only once per update received. Applying the same snapshot every frame would
--- pin the ball in place instead of letting it dead reckon between ticks.
 function NetworkController:consume_state()
   local state = self.latest_state
   self.latest_state = nil
@@ -364,14 +385,13 @@ function NetworkController:consume_state()
   return state
 end
 
-function NetworkController:broadcast_state(p1_y, p2_y, ball_position, ball_velocity)
+function NetworkController:broadcast_state(host_paddle_y, ball_position, ball_velocity)
   if not self.server then
     return
   end
 
   self.server:broadcast("state", {
-    p1_y,
-    p2_y,
+    host_paddle_y,
     ball_position.x,
     ball_position.y,
     ball_velocity.x,
@@ -402,6 +422,8 @@ function NetworkController:tick()
   end
 
   local net_tick = false
+
+  self.remote_paddle_age = self.remote_paddle_age + App:get_timestep():get_seconds()
 
   if self.server then
     net_tick = self.server:tick(App:get_timestep()) or net_tick

@@ -18,10 +18,6 @@ local ball = nil
 local player1 = nil
 local player2 = nil
 
--- Client side: where the opponent's paddle was in the last snapshot. player_system eases towards it
--- rather than snapping, which keeps 30 Hz updates looking smooth.
-local remote_paddle_target_y = nil
-
 -- Everything start_match spawns, so a second match doesn't stack another set of entities.
 local match_entities = {}
 
@@ -160,7 +156,6 @@ function stop_match(scene)
   player1 = nil
   player2 = nil
   spawn_timer = 0.0
-  remote_paddle_target_y = nil
 
   ui.data_model.p1_score = 0
   ui.data_model.p2_score = 0
@@ -244,35 +239,31 @@ function read_paddle_input(scene, player_id)
   return dir
 end
 
--- Client side only: the host owns the simulation, we follow each snapshot and dead reckon in
--- between on the velocities it sent.
 local function apply_host_state(scene)
   local state = net:consume_state()
-  if not state or not ball or not player1 or not player2 then
+  if not state or not ball then
     return
   end
 
   local ball_body = Physics.get_body(ball)
-  ball_body:set_position(scene, vec3.new(state.ball_x, state.ball_y, 0))
-  ball_body:set_linear_velocity(vec3.new(state.ball_vx, state.ball_vy, 0))
+  local position = ball_body:get_position()
+  local diff_x = state.ball_x - position.x
+  local diff_y = state.ball_y - position.y
 
-  local own_is_p1 = ui.local_player_id == Config.PLAYER_1_ID
-  local own_player = own_is_p1 and player1 or player2
-  local own_y = own_is_p1 and state.p1_y or state.p2_y
-
-  remote_paddle_target_y = own_is_p1 and state.p2_y or state.p1_y
-
-  -- Our own paddle is predicted locally. Only correct it once prediction has drifted far enough
-  -- to be worth a visible snap, which is what a dropped input packet looks like.
-  local own_body = Physics.get_body(own_player)
-  local own_position = own_body:get_position()
-  if math.abs(own_position.y - own_y) > 0.5 then
-    own_body:set_position(scene, vec3.new(own_position.x, own_y, 0))
+  if (diff_x * diff_x + diff_y * diff_y) > (Config.NET.BALL_SNAP_DISTANCE * Config.NET.BALL_SNAP_DISTANCE) then
+    ball_body:set_position(scene, vec3.new(state.ball_x, state.ball_y, 0))
+    ball_body:set_linear_velocity(vec3.new(state.ball_vx, state.ball_vy, 0))
+  else
+    ball_body:set_linear_velocity(vec3.new(
+      state.ball_vx + diff_x * Config.NET.BALL_CORRECTION_GAIN,
+      state.ball_vy + diff_y * Config.NET.BALL_CORRECTION_GAIN,
+      0
+    ))
   end
 end
 
 local function broadcast_world_state()
-  if not ball or not player1 or not player2 then
+  if not ball or not player1 then
     return
   end
 
@@ -280,7 +271,6 @@ local function broadcast_world_state()
 
   net:broadcast_state(
     Physics.get_body(player1):get_position().y,
-    Physics.get_body(player2):get_position().y,
     ball_body:get_position(),
     ball_body:get_linear_velocity()
   )
@@ -307,8 +297,8 @@ function on_scene_update(scene, dt)
   if net:is_client() then
     apply_host_state(scene)
 
-    if net_tick and ui.local_player_id then
-      net:send_input(read_paddle_input(scene, ui.local_player_id))
+    if net_tick and player2 then
+      net:send_paddle(Physics.get_body(player2):get_position().y)
     end
   end
 
@@ -445,15 +435,16 @@ function on_scene_start(scene)
             end
           elseif is_local then
             player_velocity.y = read_paddle_input(scene, pc_data.id) * pc_data.speed
-          elseif net:is_host() then
-            -- The opponent's paddle, moved by the input they keep sending us.
-            player_velocity.y = net:remote_input() * pc_data.speed
-          elseif remote_paddle_target_y then
-            -- Client side: ease the opponent's paddle towards the last position the host sent.
-            local diff_y = remote_paddle_target_y - tc_data.position.y
-            local follow_speed = pc_data.speed * 2
+          else
+            local target_y, target_vy = net:opponent_paddle()
 
-            player_velocity.y = math.max(-follow_speed, math.min(follow_speed, diff_y * 10))
+            if target_y then
+              local diff_y = target_y - tc_data.position.y
+              local follow_speed = pc_data.speed * Config.NET.PADDLE_FOLLOW_SPEED_SCALE
+              local chase = target_vy + diff_y * Config.NET.PADDLE_FOLLOW_GAIN
+
+              player_velocity.y = math.max(-follow_speed, math.min(follow_speed, chase))
+            end
           end
 
           body:set_linear_velocity(player_velocity)
