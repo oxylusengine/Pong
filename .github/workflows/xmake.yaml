@@ -22,17 +22,18 @@ jobs:
       matrix:
         platform:
           # `release: true` marks the one configuration per platform that ships in a GitHub release.
-          - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: release, runtime: MT, release: true }
-          - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: debug,   runtime: MTd }
+          # `xmake_plat` is xmake's own platform name, which is what the build directory is keyed on.
+          - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: release, runtime: MT,  xmake_plat: windows, release: true }
+          - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: debug,   runtime: MTd, xmake_plat: windows }
 
-          # - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: release, runtime: MT }
-          # - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: debug,   runtime: MTd }
+          # - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: release, runtime: MT,  xmake_plat: windows }
+          # - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: debug,   runtime: MTd, xmake_plat: windows }
 
-          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: release, runtime: c++_static, release: true }
-          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: debug,   runtime: c++_static }
+          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: release, runtime: c++_static, xmake_plat: linux, release: true }
+          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: debug,   runtime: c++_static, xmake_plat: linux }
 
-          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: release, runtime: c++_static, release: true }
-          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: debug,   runtime: c++_static }
+          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: release, runtime: c++_static, xmake_plat: macosx, release: true }
+          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: debug,   runtime: c++_static, xmake_plat: macosx }
 
     runs-on: ${{ matrix.platform.runner }}
     steps:
@@ -148,11 +149,14 @@ jobs:
         run: xmake build -vD -a
 
       # The install rules drop Assets next to the binary, so the target dir is the playable game.
+      # Deriving it from the matrix rather than asking xmake: `xmake show -t Pong` exits non-zero on
+      # the .rcss assets registered through install_resources, which trips `bash -e -o pipefail`.
       - name: Resolve target directory
         id: targetdir
         run: |
-          target_file=$(XMAKE_COLORTERM=nocolor xmake show -t Pong | grep -m1 'targetfile:' | sed 's/.*targetfile: *//')
-          echo "dir=$(dirname "$target_file")" >> $GITHUB_OUTPUT
+          dir="build/${{ matrix.platform.xmake_plat }}/${{ matrix.platform.arch }}/${{ matrix.platform.mode }}"
+          test -d "$dir" || { echo "::error::expected build output at $dir"; ls -R build || true; exit 1; }
+          echo "dir=$dir" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Stage package shared libs (Unix)
@@ -191,6 +195,8 @@ jobs:
           cp -R "${{ steps.targetdir.outputs.dir }}/." "$stage/"
           # Runtime leftovers from the build machine, not part of the game.
           rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/.DS_Store" "$stage/compile_commands.json"
+          # Only the compiled packs are read at runtime, the .slang sources are build inputs.
+          find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           cd package && zip -qr "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
@@ -205,6 +211,13 @@ jobs:
           foreach ($leftover in @("logs", "context_config.toml", "compile_commands.json")) {
             Remove-Item -Path (Join-Path $stage $leftover) -Recurse -Force -ErrorAction SilentlyContinue
           }
+          # Only the compiled packs are read at runtime, the .slang sources are build inputs.
+          $shaders = Join-Path $stage "Assets/Shaders"
+          Get-ChildItem -Path $shaders -Recurse -File |
+            Where-Object { $_.Extension -ne ".oxpack" } | Remove-Item -Force
+          Get-ChildItem -Path $shaders -Recurse -Directory |
+            Sort-Object { $_.FullName.Length } -Descending |
+            Where-Object { -not (Get-ChildItem $_.FullName -Force) } | Remove-Item -Force
           Copy-Item -Path "README.md","LICENSE" -Destination $stage -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path $stage -DestinationPath "${{ env.PACKAGE_NAME }}.zip" -Force
         shell: pwsh
