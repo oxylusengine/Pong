@@ -50,6 +50,13 @@ jobs:
         run: echo "PACKAGE_NAME=Pong-${{ matrix.platform.os }}-${{ matrix.platform.arch }}" >> $GITHUB_ENV
         shell: bash
 
+      # Derived from the matrix rather than asked of xmake: `xmake show -t Pong` exits non-zero on
+      # the .rcss assets registered through install_resources, which trips `bash -e -o pipefail`.
+      - name: Resolve target directory
+        id: targetdir
+        run: echo "dir=build/${{ matrix.platform.xmake_plat }}/${{ matrix.platform.arch }}/${{ matrix.platform.mode }}" >> $GITHUB_OUTPUT
+        shell: bash
+
       # Force xmake to a specific folder (for cache)
       - name: Set xmake env
         run: echo "XMAKE_GLOBALDIR=${{ runner.workspace }}/xmake-global" >> $GITHUB_ENV
@@ -145,33 +152,38 @@ jobs:
           path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
           key: ${{ steps.restore-depcache.outputs.cache-primary-key }}
 
-      - name: Build all targets
-        run: xmake build -vD -a
-
-      # The install rules drop Assets next to the binary, so the target dir is the playable game.
-      # Deriving it from the matrix rather than asking xmake: `xmake show -t Pong` exits non-zero on
-      # the .rcss assets registered through install_resources, which trips `bash -e -o pipefail`.
-      - name: Resolve target directory
-        id: targetdir
-        run: |
-          dir="build/${{ matrix.platform.xmake_plat }}/${{ matrix.platform.arch }}/${{ matrix.platform.mode }}"
-          test -d "$dir" || { echo "::error::expected build output at $dir"; ls -R build || true; exit 1; }
-          echo "dir=$dir" >> $GITHUB_OUTPUT
-        shell: bash
-
+      # rcli runs during the build (the compile_shaders rule) and dlopens slang's downstream
+      # compilers, so its shared deps have to be discoverable before anything is built.
       - name: Stage package shared libs (Unix)
         if: ${{ matrix.platform.os != 'windows' }}
         run: |
-          find "${{ env.XMAKE_GLOBALDIR }}/.xmake/packages" \( -name "*.so*" -o -name "*.dylib" \) -exec cp -n {} "${{ steps.targetdir.outputs.dir }}/" \; 2>/dev/null || true
+          mkdir -p dest/bin
+          find "${{ env.XMAKE_GLOBALDIR }}/.xmake/packages" \( -name "*.so*" -o -name "*.dylib" \) -exec cp {} dest/bin/ \; 2>/dev/null || true
+          echo "LD_LIBRARY_PATH=$PWD/dest/bin:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=$PWD/dest/bin:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
         shell: bash
 
       - name: Stage package shared libs (Windows)
         if: ${{ matrix.platform.os == 'windows' }}
         run: |
           $dest = "${{ steps.targetdir.outputs.dir }}"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
           Get-ChildItem -Path "${{ env.XMAKE_GLOBALDIR }}\.xmake\packages" -Recurse -Filter "*.dll" |
             ForEach-Object { Copy-Item $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue }
         shell: pwsh
+
+      - name: Build all targets
+        run: xmake build -vD -a
+
+      # The install rules drop Assets next to the binary, so the target dir is the playable game.
+      # It needs the shared libs alongside it too, for a zip that runs without env vars.
+      - name: Bundle shared libs next to the binary (Unix)
+        if: ${{ matrix.platform.os != 'windows' }}
+        run: |
+          dir="${{ steps.targetdir.outputs.dir }}"
+          test -d "$dir" || { echo "::error::expected build output at $dir"; ls -R build || true; exit 1; }
+          find dest/bin -maxdepth 1 \( -name "*.so*" -o -name "*.dylib" \) -exec cp -n {} "$dir/" \; 2>/dev/null || true
+        shell: bash
 
       - name: Install project targets
         run: |
@@ -187,19 +199,37 @@ jobs:
             dest
 
       # --- Release packaging: a zip that runs straight out of the extracted folder ---
-      - name: Package playable build (Unix)
-        if: ${{ matrix.platform.release && matrix.platform.os != 'windows' }}
+      - name: Package playable build (Linux)
+        if: ${{ matrix.platform.release && matrix.platform.os == 'linux' }}
         run: |
           stage="package/${{ env.PACKAGE_NAME }}"
           mkdir -p "$stage"
           cp -R "${{ steps.targetdir.outputs.dir }}/." "$stage/"
           # Runtime leftovers from the build machine, not part of the game.
-          rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/.DS_Store" "$stage/compile_commands.json"
+          rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/compile_commands.json"
           # Only the compiled packs are read at runtime, the .slang sources are build inputs.
           find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           cd package && zip -qr "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
+        shell: bash
+
+      - name: Package playable build (macOS)
+        if: ${{ matrix.platform.release && matrix.platform.os == 'macos' }}
+        run: |
+          stage="package/${{ env.PACKAGE_NAME }}"
+          mkdir -p "$stage"
+          cp -R "${{ steps.targetdir.outputs.dir }}/." "$stage/"
+          # Runtime leftovers from the build machine, not part of the game.
+          rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/compile_commands.json"
+          # Finder litters these through any directory it has looked at.
+          find "$stage" -name '.DS_Store' -delete
+          # Only the compiled packs are read at runtime, the .slang sources are build inputs.
+          find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
+          chmod +x "$stage/Pong"
+          cp README.md LICENSE "$stage/" 2>/dev/null || true
+          # -X keeps resource forks and extra attributes out of the archive.
+          cd package && zip -qrX "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
         shell: bash
 
       - name: Package playable build (Windows)
