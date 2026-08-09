@@ -207,6 +207,10 @@ jobs:
           cp -R "${{ steps.targetdir.outputs.dir }}/." "$stage/"
           # Runtime leftovers from the build machine, not part of the game.
           rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/compile_commands.json"
+          # The resource compiler toolchain is staged for rcli during the build. The game never
+          # loads it, so it must not reach the zip.
+          find "$stage" -maxdepth 1 \( -name '*slang*' -o -name '*SPIRV-Tools*' -o -name '*spirv-tools*' \
+            -o -name '*ResourceCompiler*' -o -name 'rcli' \) -delete
           # Only the compiled packs are read at runtime, the .slang sources are build inputs.
           find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
           chmod +x "$stage/Pong"
@@ -224,6 +228,10 @@ jobs:
           rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/compile_commands.json"
           # Finder litters these through any directory it has looked at.
           find "$stage" -name '.DS_Store' -delete
+          # The resource compiler toolchain is staged for rcli during the build. The game never
+          # loads it, so it must not reach the zip.
+          find "$stage" -maxdepth 1 \( -name '*slang*' -o -name '*SPIRV-Tools*' -o -name '*spirv-tools*' \
+            -o -name '*ResourceCompiler*' -o -name 'rcli' \) -delete
           # Only the compiled packs are read at runtime, the .slang sources are build inputs.
           find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
           chmod +x "$stage/Pong"
@@ -241,6 +249,11 @@ jobs:
           foreach ($leftover in @("logs", "context_config.toml", "compile_commands.json")) {
             Remove-Item -Path (Join-Path $stage $leftover) -Recurse -Force -ErrorAction SilentlyContinue
           }
+          # The resource compiler toolchain is staged for rcli during the build. The game never
+          # loads it, so it must not reach the zip.
+          Get-ChildItem -Path $stage -File |
+            Where-Object { $_.Name -match '(?i)slang|SPIRV-Tools|ResourceCompiler|^rcli' } |
+            Remove-Item -Force
           # Only the compiled packs are read at runtime, the .slang sources are build inputs.
           $shaders = Join-Path $stage "Assets/Shaders"
           Get-ChildItem -Path $shaders -Recurse -File |
