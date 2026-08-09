@@ -4,14 +4,16 @@ permissions:
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 env:
   VULKAN_VERSION: 1.4.309.0
   LLVM_VERSION: 20
   LLVM_WINDOWS_VERSION: 20.1.4
-  LLVM_MACOS_VERSION: 21
+  LLVM_MACOS_VERSION: 22
 
 jobs:
   build:
@@ -19,16 +21,17 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: release, runtime: MT }
+          # `release: true` marks the one configuration per platform that ships in a GitHub release.
+          - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: release, runtime: MT, release: true }
           - { runner: windows-2025, os: windows, arch: x64,    toolchain: msvc,     mode: debug,   runtime: MTd }
 
-          - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: release, runtime: MT }
-          - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: debug,   runtime: MTd }
+          # - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: release, runtime: MT }
+          # - { runner: windows-2025, os: windows, arch: x64,    toolchain: clang-cl, mode: debug,   runtime: MTd }
 
-          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: release, runtime: c++_static }
+          - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: release, runtime: c++_static, release: true }
           - { runner: ubuntu-latest,  os: linux,   arch: x86_64, toolchain: clang-20, mode: debug,   runtime: c++_static }
 
-          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: release, runtime: c++_static }
+          - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: release, runtime: c++_static, release: true }
           - { runner: macos-26,  os: macos,   arch: arm64, toolchain: mac-clang, mode: debug,   runtime: c++_static }
 
     runs-on: ${{ matrix.platform.runner }}
@@ -38,8 +41,12 @@ jobs:
         run: echo "key=$(date +'%W')" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: "Set OUTPUT_FILE variable"
+      - name: Set OUTPUT_FILE variable
         run: echo "OUTPUT_FILE=${{ matrix.platform.os }}_${{ matrix.platform.arch }}_${{ matrix.platform.mode }}_${{ matrix.platform.toolchain }}_${{ matrix.platform.runtime }}${{ matrix.platform.archive_ext }}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Set package name
+        run: echo "PACKAGE_NAME=Pong-${{ matrix.platform.os }}-${{ matrix.platform.arch }}" >> $GITHUB_ENV
         shell: bash
 
       # Force xmake to a specific folder (for cache)
@@ -62,6 +69,17 @@ jobs:
           sudo apt install -y clang-${{ env.LLVM_VERSION }} lld-${{ env.LLVM_VERSION }} llvm-${{ env.LLVM_VERSION }} libllvm${{ env.LLVM_VERSION }} llvm-${{ env.LLVM_VERSION }}-runtime libclang-common-${{ env.LLVM_VERSION }}-dev libclang-${{ env.LLVM_VERSION }}-dev libclang1-${{ env.LLVM_VERSION }} libclang-rt-${{ env.LLVM_VERSION }}-dev libc++-${{ env.LLVM_VERSION }}-dev libc++abi-${{ env.LLVM_VERSION }}-dev libunwind-${{ env.LLVM_VERSION }}-dev libllvmlibc-${{ env.LLVM_VERSION }}-dev
           sudo apt install libx11-dev libxext-dev libxrandr-dev libxrender-dev libxfixes-dev libxi-dev libxinerama-dev libxkbcommon-dev
 
+      - name: Set up Python
+        if: ${{ matrix.platform.os == 'macos' }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install MacOS dependencies
+        if: ${{ matrix.platform.os == 'macos' }}
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
       - name: Install LLVM for Windows
         if: ${{ matrix.platform.os == 'windows' }}
         uses: KyleMayes/install-llvm-action@master
@@ -78,6 +96,17 @@ jobs:
           echo "LDFLAGS=-L$LLVM_PATH/lib/c++ -Wl,-rpath,$LLVM_PATH/lib/c++ $LDFLAGS" >> $GITHUB_ENV
           echo "CPPFLAGS=-I$LLVM_PATH/include $CPPFLAGS" >> $GITHUB_ENV
           echo "CXXFLAGS=-stdlib=libc++ $CXXFLAGS" >> $GITHUB_ENV
+
+      - name: Verify LLVM version
+        if: ${{ matrix.platform.os == 'macos' }}
+        run: |
+          which clang++
+          clang++ --version
+          echo "LLVM_PATH: $LLVM_PATH"
+          echo "LDFLAGS: $LDFLAGS"
+          echo "CPPFLAGS: $CPPFLAGS"
+          echo "CXXFLAGS: $CXXFLAGS"
+          brew --prefix llvm@${{ env.LLVM_MACOS_VERSION }}
 
       # Install xmake
       - name: Setup xmake
@@ -118,8 +147,33 @@ jobs:
       - name: Build all targets
         run: xmake build -vD -a
 
-      - name: Install
-        run: xmake install -vDo dest/
+      # The install rules drop Assets next to the binary, so the target dir is the playable game.
+      - name: Resolve target directory
+        id: targetdir
+        run: |
+          target_file=$(XMAKE_COLORTERM=nocolor xmake show -t Pong | grep -m1 'targetfile:' | sed 's/.*targetfile: *//')
+          echo "dir=$(dirname "$target_file")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Stage package shared libs (Unix)
+        if: ${{ matrix.platform.os != 'windows' }}
+        run: |
+          find "${{ env.XMAKE_GLOBALDIR }}/.xmake/packages" \( -name "*.so*" -o -name "*.dylib" \) -exec cp -n {} "${{ steps.targetdir.outputs.dir }}/" \; 2>/dev/null || true
+        shell: bash
+
+      - name: Stage package shared libs (Windows)
+        if: ${{ matrix.platform.os == 'windows' }}
+        run: |
+          $dest = "${{ steps.targetdir.outputs.dir }}"
+          Get-ChildItem -Path "${{ env.XMAKE_GLOBALDIR }}\.xmake\packages" -Recurse -Filter "*.dll" |
+            ForEach-Object { Copy-Item $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue }
+        shell: pwsh
+
+      - name: Install project targets
+        run: |
+          xmake install -vo dest/
+          rm -rf dest/include/ dest/lib/
+        shell: bash
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
@@ -127,3 +181,73 @@ jobs:
           name: ${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.mode }}-${{ matrix.platform.toolchain }}-${{ matrix.platform.runtime }}
           path: |
             dest
+
+      # --- Release packaging: a zip that runs straight out of the extracted folder ---
+      - name: Package playable build (Unix)
+        if: ${{ matrix.platform.release && matrix.platform.os != 'windows' }}
+        run: |
+          stage="package/${{ env.PACKAGE_NAME }}"
+          mkdir -p "$stage"
+          cp -R "${{ steps.targetdir.outputs.dir }}/." "$stage/"
+          # Runtime leftovers from the build machine, not part of the game.
+          rm -rf "$stage/logs" "$stage/context_config.toml" "$stage/.DS_Store" "$stage/compile_commands.json"
+          chmod +x "$stage/Pong"
+          cp README.md LICENSE "$stage/" 2>/dev/null || true
+          cd package && zip -qr "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
+        shell: bash
+
+      - name: Package playable build (Windows)
+        if: ${{ matrix.platform.release && matrix.platform.os == 'windows' }}
+        run: |
+          $stage = "package/${{ env.PACKAGE_NAME }}"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Path "${{ steps.targetdir.outputs.dir }}/*" -Destination $stage -Recurse -Force
+          foreach ($leftover in @("logs", "context_config.toml", "compile_commands.json")) {
+            Remove-Item -Path (Join-Path $stage $leftover) -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          Copy-Item -Path "README.md","LICENSE" -Destination $stage -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path $stage -DestinationPath "${{ env.PACKAGE_NAME }}.zip" -Force
+        shell: pwsh
+
+      - name: Upload playable package
+        if: ${{ matrix.platform.release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ env.PACKAGE_NAME }}
+          path: ${{ env.PACKAGE_NAME }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download playable packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: package-Pong-*
+          path: packages
+          merge-multiple: true
+
+      - name: List packages
+        run: ls -lh packages
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.zip
+          generate_release_notes: true
+          body: |
+            Download the zip for your platform, extract it anywhere and run the `Pong` executable.
+            Everything the game needs ships inside the folder.
+
+            | Platform | Download |
+            | --- | --- |
+            | Windows (x64) | `Pong-windows-x64.zip` |
+            | Linux (x86_64) | `Pong-linux-x86_64.zip` |
+            | macOS (Apple silicon) | `Pong-macos-arm64.zip` |
+
+            **macOS:** the build is unsigned, so Gatekeeper quarantines it after download. Clear the
+            flag once with `xattr -dr com.apple.quarantine Pong-macos-arm64` before running.
+
+            **Linux:** needs a Vulkan driver for your GPU (`mesa-vulkan-drivers` or the vendor package).

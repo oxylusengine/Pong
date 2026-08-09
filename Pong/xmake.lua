@@ -1,7 +1,12 @@
 target("Pong")
     set_kind("binary")
     set_languages("cxx23")
-    add_rpathdirs("@executable_path")
+    -- Release builds ship their shared deps next to the executable, so look there first.
+    if is_plat("linux") then
+        add_rpathdirs("$ORIGIN")
+    else
+        add_rpathdirs("@executable_path")
+    end
 
     add_includedirs(".")
     add_files("./src/**.cpp")
