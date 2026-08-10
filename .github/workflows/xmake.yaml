@@ -168,7 +168,13 @@ jobs:
         run: |
           $dest = "${{ steps.targetdir.outputs.dir }}"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          # xmake vendors build-time tools into the same packages tree, and they drag in a whole
+          # CPython (python3xx, tcl/tk, sqlite3, openssl, its own zlib1). None of it is a runtime
+          # dep of the game, so skip those packages by path -- filtering on DLL name would also
+          # throw away a genuine zlib1.dll from the zlib package.
+          $toolPackages = '\\packages\\(c\\cmake|m\\(meson|msys2)|n\\(nasm|ninja)|p\\(python|pkgconf|perl)|s\\strawberry-perl|7\\7z|g\\git|r\\ruby|y\\yasm)\\'
           Get-ChildItem -Path "${{ env.XMAKE_GLOBALDIR }}\.xmake\packages" -Recurse -Filter "*.dll" |
+            Where-Object { $_.FullName -notmatch $toolPackages } |
             ForEach-Object { Copy-Item $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue }
         shell: pwsh
 
