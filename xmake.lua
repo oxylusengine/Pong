@@ -29,12 +29,21 @@ add_cxxflags(
 
 includes("xmake/rules.lua")
 
+-- Off builds without engine.oxpack, game.oxpack or cooked assets, so the game can't run. CI uses it
+-- for debug jobs, which are only compiled and never shipped.
+option("compile_resources")
+  set_default(true)
+  set_showmenu(true)
+  set_description("Compile shader packs and cook assets with rcli")
+option_end()
+
 add_requires("oxylus main", {
   debug = is_mode("debug"),
   configs = {
     lua_bindings = true,
     profile = false,
     tests = false,
+    compile_resources = has_config("compile_resources"),
   },
 })
 
