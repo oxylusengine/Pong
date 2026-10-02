@@ -219,6 +219,17 @@ jobs:
             -o -name '*ResourceCompiler*' -o -name 'rcli' \) -delete
           # Only the compiled packs are read at runtime, the .slang sources are build inputs.
           find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
+          # Cooked assets load from .cooked, so their sources stay behind. A source is cooked when its
+          # sidecar's uuid has a pack, and the sidecars themselves are editor-only.
+          test -f "$stage/Assets/.cooked/assets.oxmanifest" || { echo "::error::no cooked asset manifest in $stage/Assets/.cooked"; exit 1; }
+          find "$stage/Assets" -name '*.oxasset' -not -path '*/.cooked/*' | while IFS= read -r sidecar; do
+            uuid=$(sed -n 's/.*"uuid": *"\([^"]*\)".*/\1/p' "$sidecar" | head -n 1)
+            if [ -n "$uuid" ] && [ -f "$stage/Assets/.cooked/$uuid.oxpack" ]; then
+              rm -f "${sidecar%.oxasset}"
+            fi
+            rm -f "$sidecar"
+          done
+          find "$stage/Assets" -mindepth 1 -type d -empty -delete
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           cd package && zip -qr "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
@@ -240,6 +251,17 @@ jobs:
             -o -name '*ResourceCompiler*' -o -name 'rcli' \) -delete
           # Only the compiled packs are read at runtime, the .slang sources are build inputs.
           find "$stage/Assets/Shaders" -mindepth 1 ! -name '*.oxpack' -delete
+          # Cooked assets load from .cooked, so their sources stay behind. A source is cooked when its
+          # sidecar's uuid has a pack, and the sidecars themselves are editor-only.
+          test -f "$stage/Assets/.cooked/assets.oxmanifest" || { echo "::error::no cooked asset manifest in $stage/Assets/.cooked"; exit 1; }
+          find "$stage/Assets" -name '*.oxasset' -not -path '*/.cooked/*' | while IFS= read -r sidecar; do
+            uuid=$(sed -n 's/.*"uuid": *"\([^"]*\)".*/\1/p' "$sidecar" | head -n 1)
+            if [ -n "$uuid" ] && [ -f "$stage/Assets/.cooked/$uuid.oxpack" ]; then
+              rm -f "${sidecar%.oxasset}"
+            fi
+            rm -f "$sidecar"
+          done
+          find "$stage/Assets" -mindepth 1 -type d -empty -delete
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           # -X keeps resource forks and extra attributes out of the archive.
@@ -265,6 +287,26 @@ jobs:
           Get-ChildItem -Path $shaders -Recurse -File |
             Where-Object { $_.Extension -ne ".oxpack" } | Remove-Item -Force
           Get-ChildItem -Path $shaders -Recurse -Directory |
+            Sort-Object { $_.FullName.Length } -Descending |
+            Where-Object { -not (Get-ChildItem $_.FullName -Force) } | Remove-Item -Force
+          # Cooked assets load from .cooked, so their sources stay behind. A source is cooked when its
+          # sidecar's uuid has a pack, and the sidecars themselves are editor-only.
+          $assets = Join-Path $stage "Assets"
+          $cooked = Join-Path $assets ".cooked"
+          if (-not (Test-Path (Join-Path $cooked "assets.oxmanifest"))) {
+            Write-Error "no cooked asset manifest in $cooked"
+            exit 1
+          }
+          Get-ChildItem -Path $assets -Recurse -File -Filter "*.oxasset" |
+            Where-Object { $_.FullName -notmatch '[\\/]\.cooked[\\/]' } |
+            ForEach-Object {
+              $uuid = (Get-Content $_.FullName -Raw | ConvertFrom-Json).uuid
+              if ($uuid -and (Test-Path (Join-Path $cooked "$uuid.oxpack"))) {
+                Remove-Item -Path ($_.FullName -replace '\.oxasset$', '') -Force -ErrorAction SilentlyContinue
+              }
+              Remove-Item -Path $_.FullName -Force
+            }
+          Get-ChildItem -Path $assets -Recurse -Directory |
             Sort-Object { $_.FullName.Length } -Descending |
             Where-Object { -not (Get-ChildItem $_.FullName -Force) } | Remove-Item -Force
           Copy-Item -Path "README.md","LICENSE" -Destination $stage -Force -ErrorAction SilentlyContinue
