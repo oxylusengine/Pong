@@ -1,7 +1,6 @@
 local vfs = App:get_vfs()
-local WORKING_DIR = vfs:is_mounted_dir(vfs:PROJECT_DIR()) and vfs:PROJECT_DIR() or vfs:APP_DIR()
 
-local Config = require_script(WORKING_DIR, "Scripts/config.lua")
+local Config = require_script("config.lua")
 
 local UI = {}
 UI.__index = UI
@@ -108,7 +107,7 @@ function UI:read_port()
 end
 
 function UI:build()
-  local ui_document_path = vfs:resolve_physical_dir(WORKING_DIR, "UI/ui.rml")
+  local ui_document_path = vfs:resolve_physical_dir(VFS.ASSETS_DIR, "UI/ui.rml")
 
   self.rml_context = rmlui.contexts[self.scene:get_rml_context_name()]
   rmlui_ext.ClearStyleCache()

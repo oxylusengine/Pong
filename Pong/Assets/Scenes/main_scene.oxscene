@@ -18,14 +18,51 @@
       "radius": 0.5,
       "final_power": 1.2
     },
+    "rtao": {
+      "enabled": false,
+      "ray_count": 2,
+      "radius": 1,
+      "power": 1
+    },
+    "ddgi": {
+      "enabled": true,
+      "rays_per_probe": 144,
+      "max_ray_distance": 50,
+      "max_ray_radiance": 25,
+      "update_max_interval": 8,
+      "update_full_rate_distance": 10,
+      "probe_relocation": true,
+      "min_frontface_distance": 0.5,
+      "shadow_ray_offset": 0.05,
+      "normal_bias": 0.25,
+      "view_bias": 0.1,
+      "hysteresis": 0.97,
+      "max_brightness_step": 0.1,
+      "firefly_ratio": 32,
+      "hysteresis_dark_bias": 0.15,
+      "intensity": 1,
+      "probe_debug_radius": 0.1,
+      "distance_culling": true
+    },
     "bloom": {
       "enabled": true,
       "threshold": 1,
       "soft_threshold": 0.125,
-      "radius": 0.75
+      "radius": 0.75,
+      "intensity": 0.1,
+      "clamp": 4
+    },
+    "particles": {
+      "enabled": true,
+      "sort": true
     },
     "fxaa": {
       "enabled": true
+    },
+    "upscaler": {
+      "backend": 1,
+      "quality": 0,
+      "sharpness": 0
     },
     "contact_shadows": {
       "enabled": false,
@@ -53,9 +90,9 @@
             },
             "rotation": {
               "x": 0,
-              "y": -0.707107,
+              "y": 0,
               "z": 0,
-              "w": 0.707107
+              "w": 1
             },
             "scale": {
               "x": 1,
@@ -73,7 +110,7 @@
           "::ox::Core::CameraComponent": {
             "projection": 0,
             "fov": 60,
-            "aspect": 2.16867,
+            "aspect": 2.26415,
             "far_clip": 1000,
             "near_clip": 0.01,
             "tilt": 0,
@@ -139,6 +176,11 @@
               "y": 0,
               "z": 0,
               "w": 1
+            },
+            "ambient_color": {
+              "x": 0.03,
+              "y": 0.03,
+              "z": 0.03
             },
             "texture": "00000000-0000-0000-0000-000000000000"
           }

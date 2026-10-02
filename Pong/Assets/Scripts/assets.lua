@@ -1,21 +1,17 @@
+-- Each handle holds a ref on its asset and drops it when collected, so they live in this table for
+-- as long as the sprites are in use.
 Assets = {
-  player_sprite_asset = {},
-  ball_sprite_asset = {},
-  background_asset = {},
+  player_sprite_asset = nil,
+  ball_sprite_asset = nil,
+  background_asset = nil,
 }
 
-function Assets.load_assets(WORKING_DIR)
+function Assets.load_assets()
   local asset_man = App.mod.AssetManager
-  local vfs = App:get_vfs();
 
-  local sprites_dir = vfs:resolve_physical_dir(WORKING_DIR, "Sprites")
-
-  Assets.player_sprite_asset = asset_man:import_asset(sprites_dir .. "/player.png.oxasset")
-  asset_man:load_asset(Assets.player_sprite_asset)
-  Assets.ball_sprite_asset = asset_man:import_asset(sprites_dir .. "/ball.png.oxasset")
-  asset_man:load_asset(Assets.ball_sprite_asset)
-  Assets.background_asset = asset_man:import_asset(sprites_dir .. "/space_background.png.oxasset")
-  asset_man:load_asset(Assets.background_asset)
+  Assets.player_sprite_asset = asset_man:acquire("Sprites/player.png")
+  Assets.ball_sprite_asset = asset_man:acquire("Sprites/ball.png")
+  Assets.background_asset = asset_man:acquire("Sprites/space_background.png")
 end
 
 return Assets

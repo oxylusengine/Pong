@@ -1,12 +1,9 @@
-local vfs = App:get_vfs()
-WORKING_DIR = vfs:is_mounted_dir(vfs:PROJECT_DIR()) and vfs:PROJECT_DIR() or vfs:APP_DIR()
+Config = require_script("config.lua")
+Assets = require_script("assets.lua")
 
-Config = require_script(WORKING_DIR, "Scripts/config.lua")
-Assets = require_script(WORKING_DIR, "Scripts/assets.lua")
-
-local Components = require_script(WORKING_DIR, "Scripts/components.lua")
-local UI = require_script(WORKING_DIR, "Scripts/ui.lua")
-local NetworkController = require_script(WORKING_DIR, "Scripts/network_controller.lua")
+local Components = require_script("components.lua")
+local UI = require_script("ui.lua")
+local NetworkController = require_script("network_controller.lua")
 
 local components = nil
 local ui = nil
@@ -39,7 +36,7 @@ function create_player(scene, player_id, starting_point)
 
   local sc = player:get_mut(Core.SpriteComponent)
   local mat = am:get_mut_material(sc.material)
-  mat:set_albedo_texture(Assets.player_sprite_asset)
+  mat:set_albedo_texture(Assets.player_sprite_asset:uuid())
   mat:set_sampling_mode(SamplingMode.NearestClamped)
   am:set_material_dirty(sc.material)
 
@@ -84,7 +81,7 @@ function create_background(scene)
   background:add(Core.SpriteComponent)
   local sc = background:get_mut(Core.SpriteComponent)
   local mat = am:get_mut_material(sc.material)
-  mat:set_albedo_texture(Assets.background_asset)
+  mat:set_albedo_texture(Assets.background_asset:uuid())
   mat:set_sampling_mode(SamplingMode.NearestClamped)
   am:set_material_dirty(sc.material)
 end
@@ -100,7 +97,7 @@ function create_ball(scene)
 
   local sc = ball:get_mut(Core.SpriteComponent)
   local mat = am:get_mut_material(sc.material)
-  mat:set_albedo_texture(Assets.ball_sprite_asset)
+  mat:set_albedo_texture(Assets.ball_sprite_asset:uuid())
   mat:set_sampling_mode(SamplingMode.NearestClamped)
   am:set_material_dirty(sc.material)
 
@@ -352,7 +349,7 @@ function on_scene_update(scene, dt)
 end
 
 function on_scene_start(scene)
-  Assets.load_assets(WORKING_DIR)
+  Assets.load_assets()
 
   create_background(scene)
 

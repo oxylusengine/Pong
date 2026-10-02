@@ -1,7 +1,4 @@
-local vfs = App:get_vfs()
-local WORKING_DIR = vfs:is_mounted_dir(vfs:PROJECT_DIR()) and vfs:PROJECT_DIR() or vfs:APP_DIR()
-
-local Config = require_script(WORKING_DIR, "Scripts/config.lua")
+local Config = require_script("config.lua")
 
 local NetworkController = {}
 NetworkController.__index = NetworkController
