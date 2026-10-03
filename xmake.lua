@@ -43,7 +43,8 @@ add_requires("oxylus main", {
     lua_bindings = true,
     profile = false,
     tests = false,
-    compile_resources = has_config("compile_resources"),
+    -- has_config reads false until options resolve, get_config reads nil then, which keeps it on
+    compile_resources = get_config("compile_resources") ~= false,
   },
 })
 
