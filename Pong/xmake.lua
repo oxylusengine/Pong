@@ -13,7 +13,7 @@ target("Pong")
 
     add_packages("oxylus")
 
-    add_files("./Assets/**|.DS_Store|**/.DS_Store")
+    add_files("./Assets/**|.DS_Store|**/.DS_Store|.cooked/**")
     add_rules("@oxylus/install_resources", {
         root_dir = os.scriptdir() .. "/Assets",
         output_dir = "Assets",
@@ -25,9 +25,6 @@ target("Pong")
     add_files("./Assets/*.toml")
     add_rules("@oxylus/compile_shaders", {
         output_dir = "Assets/Shaders",
-    })
-    add_rules("@oxylus/install_fonts", {
-        output_dir = "Assets/Fonts",
     })
     add_rules("@oxylus/cook_assets", { root_dir = os.scriptdir() .. "/Assets" })
 target_end()

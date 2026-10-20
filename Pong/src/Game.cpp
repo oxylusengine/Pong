@@ -1,66 +1,23 @@
 #include "Game.hpp"
 
 #include <Asset/AssetFile.hpp>
+#include <Asset/AssetManager.hpp>
 #include <Core/App.hpp>
 #include <Core/Input.hpp>
+#include <Core/VFS.hpp>
 #include <Render/RenderContext.hpp>
-#include <Render/Utils/VukCommon.hpp>
 #include <RmlUi/Core.h>
 #include <UI/ImGuiRenderer.hpp>
 #include <UI/RmlUI.hpp>
 #include <imgui.h>
-#include <vuk/runtime/CommandBuffer.hpp>
-#include <vuk/vsl/Core.hpp>
+
+#include "CRT.hpp"
 
 namespace pong {
-auto apply_crt(
-  vuk::Value<vuk::ImageAttachment>&& src, vuk::Value<vuk::ImageAttachment>&& dst, u32 frame_count, f32 elapsed_ms
-) -> vuk::Value<vuk::ImageAttachment> {
-  ZoneScoped;
-
-  auto crt_pass = vuk::make_pass(
-    "crt",
-    [elapsed_ms](
-      vuk::CommandBuffer& cmd_list, //
-      VUK_IA(vuk::eColorWrite) target,
-      VUK_IA(vuk::eFragmentSampled) source
-    ) {
-      cmd_list //
-        .bind_graphics_pipeline("crt")
-        .set_rasterization({})
-        .set_color_blend(target, vuk::BlendPreset::eOff)
-        .set_dynamic_state(vuk::DynamicStateFlagBits::eViewport | vuk::DynamicStateFlagBits::eScissor)
-        .set_viewport(0, vuk::Rect2D::framebuffer())
-        .set_scissor(0, vuk::Rect2D::framebuffer())
-        .bind_image(0, 0, source)
-        .bind_sampler(0, 1, vuk::LinearSamplerClamped)
-        .push_constants(
-          vuk::ShaderStageFlagBits::eFragment,
-          0,
-          ox::PushConstants(
-            glm::vec2(target->extent.width, target->extent.height),
-            glm::vec2(source->extent.width, source->extent.height),
-            elapsed_ms
-          )
-        )
-        .draw(3, 1, 0, 0);
-
-      return std::make_tuple(target, source);
-    }
-  );
-
-  auto [result, _] = crt_pass(std::move(dst), std::move(src));
-  return result;
-}
-
 auto Game::init() -> std::expected<void, std::string> {
   ZoneScoped;
 
-  auto& vfs = ox::App::get_vfs();
-
-  auto scenes_dir = vfs.resolve_physical_dir(ox::VFS::ASSETS_DIR, "Scenes");
-  auto fonts_dir = vfs.resolve_physical_dir(ox::VFS::APP_DIR, "Fonts");
-  auto shaders_dir = vfs.resolve_physical_dir(ox::VFS::APP_DIR, "Shaders");
+  auto shaders_dir = ox::App::get_vfs().resolve_physical_dir(ox::VFS::APP_DIR, "Shaders");
 
   auto shader_file = ox::AssetFile::unpack(shaders_dir / "game.oxpack");
   if (!shader_file.has_value()) {
@@ -68,23 +25,30 @@ auto Game::init() -> std::expected<void, std::string> {
   }
 
   auto& render_context = ox::App::get_rendercontext();
-  for (const auto& entry : shader_file->entries) {
-    const auto* pipeline_data = std::get_if<ox::ShaderPipelineData>(&entry.data);
-    if (!pipeline_data) {
-      continue;
-    }
-
-    render_context.create_pipeline(*pipeline_data);
-  }
+  render_context.load_shader_pack(shader_file.value());
 
   for (const auto* font : {"FiraSans-Regular.ttf", "FiraSans-Bold.ttf"}) {
-    if (!Rml::LoadFontFace((fonts_dir / font).string())) {
+    // the game's own fonts, cooked with the rest of its assets. Virtual, so RmlUi finds the pack once the source is
+    // gone
+    if (!Rml::LoadFontFace(std::format("{}/Fonts/{}", ox::VFS::ASSETS_DIR, font))) {
       return std::unexpected(std::format("Failed to load RmlUI font face '{}'!", font));
     }
   }
 
+  // by the asset the cook registered rather than by file, so the scene still loads once a cooked format replaces it
+  auto& asset_man = ox::App::mod<ox::AssetManager>();
+  const auto main_scene_path = std::filesystem::path(ox::VFS::ASSETS_DIR) / "Scenes/main_scene.oxscene";
+  const auto main_scene_uuid = asset_man.find_asset(main_scene_path);
+  if (!main_scene_uuid) {
+    return std::unexpected(
+      std::format("'{}' isn't a registered asset, are the assets cooked?", main_scene_path.string())
+    );
+  }
+
   main_scene = std::make_unique<ox::Scene>("MainScene");
-  main_scene->load_from_file(scenes_dir / "main_scene.oxscene");
+  if (!main_scene->load_from_asset(main_scene_uuid)) {
+    return std::unexpected(std::format("Failed to load '{}'!", main_scene_path.string()));
+  }
   main_scene->runtime_start();
 
   return {};

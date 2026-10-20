@@ -258,6 +258,14 @@ jobs:
             rm -f "$sidecar"
           done
           find "$stage/Assets" -mindepth 1 -type d -empty -delete
+          # Every library the game loads has to come from the folder or the system. LD_LIBRARY_PATH points at
+          # the staged package libs for rcli, so it would hide one that only resolves on this runner.
+          deps=$(env -u LD_LIBRARY_PATH ldd "$stage/Pong")
+          if grep -q 'not found' <<< "$deps"; then
+            echo "$deps"
+            echo "::error::Pong needs a shared library the package does not ship"
+            exit 1
+          fi
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           cd package && zip -qr "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
@@ -290,6 +298,16 @@ jobs:
             rm -f "$sidecar"
           done
           find "$stage/Assets" -mindepth 1 -type d -empty -delete
+          # Every library the game loads has to come from the folder or the OS. An absolute path into the
+          # runner's homebrew or package tree only exists on this machine.
+          otool -L "$stage/Pong" | tail -n +2 | awk '{print $1}' | while read -r dep; do
+            case "$dep" in
+              /usr/lib/*|/System/*) ;;
+              @rpath/*|@executable_path/*|@loader_path/*)
+                test -f "$stage/${dep#*/}" || { echo "::error::Pong needs $dep, which the package does not ship"; exit 1; } ;;
+              *) echo "::error::Pong links $dep, which only exists on the build machine"; exit 1 ;;
+            esac
+          done
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           # -X keeps resource forks and extra attributes out of the archive.
