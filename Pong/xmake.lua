@@ -13,7 +13,8 @@ target("Pong")
 
     add_packages("oxylus")
 
-    add_files("./Assets/**|.DS_Store|**/.DS_Store|.cooked/**")
+    -- the C# scripts are built by publish_csharp, not as sources of the game
+    add_files("./Assets/**|.DS_Store|**/.DS_Store|.cooked/**|**.cs")
     add_rules("@oxylus/install_resources", {
         root_dir = os.scriptdir() .. "/Assets",
         output_dir = "Assets",
@@ -27,4 +28,9 @@ target("Pong")
         output_dir = "Assets/Shaders",
     })
     add_rules("@oxylus/cook_assets", { root_dir = os.scriptdir() .. "/Assets" })
+    -- Scripts/Pong.csproj with NativeAOT -> scripts/Pong.dll, which App.cpp hands DotNetScripting
+    add_rules("@oxylus/publish_csharp", {
+        project = os.scriptdir() .. "/Scripts/Pong.csproj",
+        asset_dir = os.scriptdir() .. "/Assets",
+    })
 target_end()

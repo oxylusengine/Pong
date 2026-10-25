@@ -40,7 +40,7 @@ option_end()
 add_requires("oxylus main", {
   debug = is_mode("debug"),
   configs = {
-    lua_bindings = true,
+    dotnet = true,
     profile = false,
     tests = false,
     -- has_config reads false until options resolve, get_config reads nil then, which keeps it on

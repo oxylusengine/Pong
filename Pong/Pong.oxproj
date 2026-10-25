@@ -3,4 +3,5 @@
 asset_directory = 'Assets'
 module_name = ''
 name = 'Pong'
+scripts_project = 'Scripts/Pong.csproj'
 start_scene = 'Scenes/main_scene.oxscene'

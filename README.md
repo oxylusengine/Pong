@@ -3,7 +3,7 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/oxylusengine/Pong/xmake.yaml?&style=for-the-badge&logo=cmake&logoColor=orange&labelColor=black)](https://github.com/oxylusengine/Pong/actions/workflows/xmake.yaml)
 
 Multiplayer Pong made in [Oxylus](https://github.com/oxylusengine/Oxylus). It doubles as an example
-project: a complete game whose gameplay, UI and netcode live entirely in Lua, with C++ used only for
+project: a complete game whose gameplay, UI and netcode live entirely in C#, with C++ used only for
 app startup and one custom render pass.
 
 <p align="center">
@@ -28,50 +28,53 @@ On macOS the build is unsigned, so clear the quarantine flag once with
 
 ## How it works
 
-`Pong/src` is deliberately thin. `App.cpp` builds the `ox::App` with `DefaultModules` and registers
-`pong::Game`, which loads `main_scene.oxscene`, imports `scene.lua` as a script asset and calls
-`runtime_start()`. From there the scene's Lua systems are the game. `Game::update` also runs a CRT
-post-process pass over the rendered scene, compiled from `Assets/Shaders/crt.slang` through the
-`game.toml` manifest into `game.oxpack`.
+`Pong/src` is deliberately thin. `App.cpp` builds the `ox::App` with `DefaultModules`, points
+`DotNetScripting` at the scripts library next to the executable, and registers `pong::Game`, which
+loads `main_scene.oxscene` and calls `runtime_start()`. The scene lists the `Pong.PongGame` scene
+script, and from there C# is the game. `Game::update` also runs a CRT post-process pass over the
+rendered scene, compiled from `Assets/Shaders/crt.slang` through the `game.toml` manifest into
+`game.oxpack`.
 
-Everything else is in `Pong/Assets/Scripts`:
+The scripts are in `Pong/Assets/Scripts`, built by `Pong/Scripts/Pong.csproj`:
 
 | Script | Role |
 | --- | --- |
-| `scene.lua` | Entry point. Spawns paddles, ball and walls, and defines the flecs systems that move them. |
-| `components.lua` | `PlayerComponent` and `BallComponent`, declared with `Component.define`. |
-| `ui.lua` | RmlUI documents and the menu state machine, including the online lobby. |
-| `network_controller.lua` | Session layer over `NetworkManager`: hosting, joining, lobby state and RPCs. |
-| `assets.lua` | Sprite loading through `AssetManager`. |
-| `config.lua` | Tunables: speeds, network tick rate, interpolation gains. |
+| `PongGame.cs` | The scene script. Reacts to the menus, runs the local lobby, starts and ends matches, and wires a match to the network session. |
+| `Match.cs` | One match: the paddles (keys, AI or the online opponent), the ball, bounce angles, goals and the serve countdown. |
+| `NetSession.cs` | One online game, hosted or joined: lobby state, the RPCs, and the opponent's interpolated paddle. |
+| `Menus.cs` | The RmlUI document. Shows panels, lobbies, the score and the point banner, and turns every button into a `MenuAction`. |
+| `Arena.cs` | Spawns the background, walls, paddles and ball with their sprites, colliders and bodies. |
+| `Tuning.cs` | Tunables: sizes, speeds, the send rate and the interpolation and correction gains. |
 
-The UI is RmlUI: `Assets/UI/ui.rml` holds every panel, `style.rcss` styles them, and `ui.lua` toggles
-which one is visible and binds the score to a data model.
+The UI is RmlUI: `Assets/UI/ui.rml` holds every panel, `style.rcss` styles them, and `Menus.cs`
+toggles which one is visible and binds the score to a data model.
 
 ### Networking
 
 The host is a player, not a dedicated server, and it owns the simulation. Both sides exchange
-[enet](https://github.com/zpl-c/enet) RPCs registered with `register_proc`:
+[enet](https://github.com/zpl-c/enet) RPCs, declared as typed `Rpc` fields in `NetSession.cs`:
 
-| Proc | Direction | Channel | Payload |
+| RPC | Direction | Channel | Payload |
 | --- | --- | --- | --- |
-| `ready` | client → host | reliable | ready flag |
-| `lobby` | host → client | reliable | both ready flags |
-| `start` | host → client | reliable | match begins |
-| `input` | client → host | unreliable | paddle direction |
-| `state` | host → client | unreliable | paddle Y, ball position and velocity |
-| `score` | host → client | reliable | scores and who scored |
-| `round` | host → client | reliable | ball relaunched |
+| `ready` | guest → host | reliable | guest's ready flag |
+| `lobby` | host → guest | reliable | both ready flags |
+| `start` | host → guest | reliable | match begins |
+| `paddle` | both ways | unreliable | the sender's paddle Y |
+| `ball` | host → guest | unreliable | ball position and velocity |
+| `score` | host → guest | reliable | scores and who scored |
+| `serve` | host → guest | reliable | ball served again |
 
-Only the host runs goal detection, bounce angles and scoring. The client applies each snapshot and
-dead reckons on the velocities in between, predicts its own paddle from local input, and eases the
-opponent's paddle towards the last position it heard about. Snapshots go out at
-`Config.NET.TICK_RATE` (30 Hz).
+Only the host runs goal detection, bounce angles and scoring. The guest simulates the ball itself and
+steers it back onto each update from the host, snapping when it drifts too far, and plays the
+opponent's paddle back between its last two reports. State goes out at 30 Hz
+(`Tuning.SendInterval`).
 
 ## Building
 
-Requires [xmake](https://xmake.io), the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) and a C++23
-compiler. Oxylus is pulled in as an xmake package, so there is no engine checkout to manage.
+Requires [xmake](https://xmake.io), the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home), the
+[.NET 10 SDK](https://dotnet.microsoft.com/download) and a C++23 compiler. Oxylus comes in as an
+xmake package from the oxylus xmake-repo checked out next to this one (`../xmake-repo`). Set
+`OXYLUS_SOURCE_DIR` to an absolute path to an Oxylus checkout to build the package from it.
 
 ```bash
 xmake f --toolchain=clang --runtimes=c++_static -m debug
@@ -82,9 +85,10 @@ xmake r Pong
 Pick the toolchain for your platform (`clang-cl` on Windows, `mac-clang` on macOS, `nix-clang` on
 NixOS) — see `xmake/toolchains.lua`. Modes are `debug`, `release` and `dist`.
 
-Scripts and assets are copied next to the binary by the build, so iterating on gameplay is a plain
-`xmake build` with no C++ to recompile. Pressing <kbd>R</kbd> in game reloads the RmlUI document and
-clears the style cache.
+The build publishes the C# scripts with NativeAOT into `scripts/` and copies the assets next to the
+binary, so the game runs without .NET installed. Iterating on gameplay is a plain `xmake build` with
+no C++ to recompile. Opening `Pong/Pong.oxproj` in the Oxylus editor builds and hot reloads the same
+scripts while the scene isn't playing.
 
 ## Releases
 

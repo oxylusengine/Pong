@@ -17,6 +17,10 @@ namespace pong {
 auto Game::init() -> std::expected<void, std::string> {
   ZoneScoped;
 
+  if (!ox::App::mod<ox::DotNetScripting>().is_loaded()) {
+    return std::unexpected("The game's C# scripts didn't load, see the log for why");
+  }
+
   auto shaders_dir = ox::App::get_vfs().resolve_physical_dir(ox::VFS::APP_DIR, "Shaders");
 
   auto shader_file = ox::AssetFile::unpack(shaders_dir / "game.oxpack");
@@ -58,6 +62,8 @@ auto Game::deinit() -> std::expected<void, std::string> {
   ZoneScoped;
 
   main_scene->runtime_stop();
+  // before DotNetScripting deinits, the scene's C# script lives in it
+  main_scene.reset();
 
   return {};
 }

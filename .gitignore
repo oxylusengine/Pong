@@ -78,3 +78,8 @@ vsxmake2026
 .zed
 Pong/Assets/.cooked
 Pong/.oxeditor
+# the editor rewrites it with this machine's paths every time the project opens
+Pong/Scripts/Oxylus.props
+Pong/Scripts/bin
+Pong/Scripts/obj
+Pong/Scripts/.idea
