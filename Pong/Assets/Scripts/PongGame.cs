@@ -5,7 +5,7 @@ using Oxylus;
 namespace Pong;
 
 // the main scene's script: menus, lobbies and whichever match is being played
-public sealed class PongGame : SceneScript
+public sealed class PongGame : SceneBehaviour
 {
     Menus menus = null!;
     Entity background;

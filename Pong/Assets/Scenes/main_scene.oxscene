@@ -18,6 +18,10 @@
       "radius": 0.5,
       "final_power": 1.2
     },
+    "raytracing": {
+      "skinned_rebuild_budget": 50000,
+      "skinned_max_refits": 8
+    },
     "rtao": {
       "enabled": false,
       "ray_count": 2,
@@ -114,7 +118,8 @@
             "far_clip": 1000,
             "near_clip": 0.01,
             "tilt": 0,
-            "zoom": 1
+            "zoom": 1,
+            "active": true
           }
         }
       ],
