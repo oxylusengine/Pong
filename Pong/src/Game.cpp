@@ -7,9 +7,9 @@
 #include <Core/VFS.hpp>
 #include <Render/RenderContext.hpp>
 #include <RmlUi/Core.h>
-#include <UI/ImGuiRenderer.hpp>
-#include <UI/RmlUI.hpp>
-#include <imgui.h>
+#include <span>
+#include <utility>
+#include <vir/Module.hpp>
 
 #include "CRT.hpp"
 
@@ -64,6 +64,8 @@ auto Game::deinit() -> std::expected<void, std::string> {
   main_scene->runtime_stop();
   // before DotNetScripting deinits, the scene's C# script lives in it
   main_scene.reset();
+  frame_program.reset();
+  scene_target = {};
 
   return {};
 }
@@ -73,44 +75,89 @@ auto Game::update(const ox::Timestep& timestep) -> void {
 
   main_scene->runtime_update(timestep);
 
-  frame_count += 1;
   elapsed_ms += static_cast<f32>(timestep.get_millis());
 
-  auto& vk_context = ox::App::get_rendercontext();
-  auto& imgui_renderer = ox::App::mod<ox::ImGuiRenderer>();
+  auto& render_context = ox::App::get_rendercontext();
   auto& window = ox::App::get_window();
 
-  auto swapchain_attachment = vk_context.new_frame();
-  swapchain_attachment = vuk::clear_image(std::move(swapchain_attachment), vuk::Black<f32>);
-
-  auto scene_attachment = vuk::declare_ia(
-    "scene",
-    {
-      .usage = vuk::ImageUsageFlagBits::eColorAttachment | vuk::ImageUsageFlagBits::eSampled,
-      .extent = swapchain_attachment->extent,
-      .sample_count = vuk::Samples::e1,
-      .level_count = 1,
-      .layer_count = 1,
+  const auto frame = render_context.new_frame();
+  if (!frame) {
+    // a minimized window has no swapchain to draw into
+    if (frame.error() != VK_NOT_READY) {
+      OX_LOG_ERROR("Couldn't start a frame ({})", std::to_underlying(frame.error()));
     }
-  );
-  scene_attachment.same_format_as(swapchain_attachment);
-  scene_attachment = vuk::clear_image(std::move(scene_attachment), vuk::Black<f32>);
 
-  imgui_renderer.begin_frame(timestep.get_seconds(), window.get_logical_size(), window.get_real_size());
+    return;
+  }
+
+  if ((!frame_program || frame_program_generation != frame->generation) && !prepare_frame(*frame)) {
+    return;
+  }
 
   main_scene->set_rml_dpi_ratio(window.get_dpi_scale());
-
-  auto scene_view_image = main_scene->render(
-    std::move(scene_attachment),
+  const auto rendered = main_scene->render(
+    scene_target.attachment_info(),
     glm::ivec2{0, 0},
     window.get_logical_size(),
     window.get_real_size()
   );
+  if (!rendered) {
+    OX_LOG_ERROR("Couldn't render the scene ({})", std::to_underlying(rendered.error()));
+    return;
+  }
 
-  scene_view_image = apply_crt(std::move(scene_view_image), std::move(swapchain_attachment), frame_count, elapsed_ms);
+  const auto size = glm::vec2(frame->extent.width, frame->extent.height);
+  const auto constants = CrtConstants(size, size, elapsed_ms);
+  frame_program->set_bytes(crt_constants, std::span<const u8>(constants.struct_data));
 
-  scene_view_image = imgui_renderer.end_frame(vk_context, std::move(scene_view_image));
+  const auto ticket = render_context.execute(*frame_program);
+  if (!ticket) {
+    if (ticket.error() == VK_ERROR_OUT_OF_DATE_KHR) {
+      frame_program.reset();
+      render_context.handle_resize();
+      return;
+    }
 
-  vk_context.end_frame(scene_view_image);
+    OX_LOG_ERROR("Couldn't present the frame ({})", std::to_underlying(ticket.error()));
+    return;
+  }
+
+  // anything released this frame waits for everything the frame submitted
+  render_context.seal_retirements(*ticket);
+}
+
+auto Game::prepare_frame(const ox::SwapchainInfo& swapchain) -> bool {
+  ZoneScoped;
+
+  auto& render_context = ox::App::get_rendercontext();
+  frame_program.reset();
+  scene_target = ox::Texture::create({
+    .format = swapchain.format,
+    .extent = vir::Extent3D{swapchain.extent.width, swapchain.extent.height, 1},
+    .usage = vir::ImageUsageFlags::ColorAttachment | vir::ImageUsageFlags::Sampled | vir::ImageUsageFlags::TransferSrc |
+             vir::ImageUsageFlags::TransferDst,
+  });
+  // the program reads it at rest, so it has to be there before the scene first draws into it
+  const auto black = vir::ClearValue::rgba_f32(0.0f, 0.0f, 0.0f, 1.0f);
+  if (const auto cleared = scene_target.clear(black, vir::Access::FragmentSampled); !cleared) {
+    OX_LOG_ERROR("Couldn't clear the scene's target ({})", std::to_underlying(cleared.error()));
+    return false;
+  }
+
+  auto module = vir::Module{};
+  crt_constants = module.declare_bytes_var("crt constants", static_cast<u32>(CrtConstants::TOTAL_SIZE));
+  auto image = render_context.acquire_next_image(module);
+  image = record_crt(module, scene_target.import(module, vir::Access::FragmentSampled), image, crt_constants);
+  module.present(image);
+
+  auto compiled = render_context.compile(std::move(module));
+  if (!compiled) {
+    OX_LOG_ERROR("Couldn't compile the frame ({})", std::to_underlying(compiled.error()));
+    return false;
+  }
+
+  frame_program = std::make_unique<vir::Program>(std::move(*compiled));
+  frame_program_generation = swapchain.generation;
+  return true;
 }
 } // namespace pong

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <Asset/Texture.hpp>
 #include <Scene/Scene.hpp>
 #include <Scripting/DotNetScripting.hpp>
+#include <vir/Program.hpp>
 
 namespace pong {
 class Game {
@@ -15,8 +17,16 @@ public:
   auto update(const ox::Timestep& timestep) -> void;
 
   std::unique_ptr<ox::Scene> main_scene = nullptr;
+  // what the scene renders into, and the program that draws it onto the swapchain image through the CRT pass, both
+  // made again whenever the swapchain is replaced
+  ox::Texture scene_target = {};
+  std::unique_ptr<vir::Program> frame_program = nullptr;
+  u64 frame_program_generation = 0;
+  vir::ValueID crt_constants = vir::ValueID::Invalid;
 
-  u32 frame_count = 0;
-  f32 elapsed_ms = 0.f;
+  f32 elapsed_ms = 0.0f;
+
+private:
+  auto prepare_frame(const ox::SwapchainInfo& swapchain) -> bool;
 };
 } // namespace pong
