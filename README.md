@@ -85,8 +85,8 @@ xmake r Pong
 Pick the toolchain for your platform (`clang-cl` on Windows, `mac-clang` on macOS, `nix-clang` on
 NixOS) — see `xmake/toolchains.lua`. Modes are `debug`, `release` and `dist`.
 
-The build publishes the C# scripts with NativeAOT into `scripts/` and copies the assets next to the
-binary, so the game runs without .NET installed. Iterating on gameplay is a plain `xmake build` with
+The build publishes the C# scripts with NativeAOT into one library and puts it and the assets next
+to the binary, so the game runs without .NET installed. Iterating on gameplay is a plain `xmake build` with
 no C++ to recompile. Opening `Pong/Pong.oxproj` in the Oxylus editor builds and hot reloads the same
 scripts while the scene isn't playing.
 

@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
       .flags = ox::WindowFlag::Centered | ox::WindowFlag::HighPixelDensity,
     })
     .with_assets_directory("Assets")
-    .with_scripts("scripts/Pong")
+    .with_scripts("Pong")
     .with(ox::DefaultModules{})
     .with<pong::Game>()
     .run();

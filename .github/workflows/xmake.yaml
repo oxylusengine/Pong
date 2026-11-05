@@ -206,18 +206,19 @@ jobs:
           # xmake vendors build-time tools into the same packages tree, and they drag in a whole
           # CPython (python3xx, tcl/tk, sqlite3, openssl, its own zlib1). None of it is a runtime
           # dep of the game, so skip those packages by path -- filtering on DLL name would also
-          # throw away a genuine zlib1.dll from the zlib package.
+          # throw away a genuine zlib1.dll from the zlib package. The oxylus package's managed/ is
+          # the SDK the C# project compiles against, those assemblies are inside the published library.
           $toolPackages = '\\packages\\(c\\cmake|m\\(meson|msys2)|n\\(nasm|ninja)|p\\(python|pkgconf|perl)|s\\strawberry-perl|7\\7z|g\\git|r\\ruby|y\\yasm)\\'
           Get-ChildItem -Path "${{ env.XMAKE_GLOBALDIR }}\.xmake\packages" -Recurse -Filter "*.dll" |
-            Where-Object { $_.FullName -notmatch $toolPackages } |
+            Where-Object { $_.FullName -notmatch $toolPackages -and $_.FullName -notmatch '\\managed\\' } |
             ForEach-Object { Copy-Item $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue }
         shell: pwsh
 
       - name: Build all targets
         run: xmake build -vD -a
 
-      # The install rules drop Assets next to the binary, so the target dir is the playable game.
-      # It needs the shared libs alongside it too, for a zip that runs without env vars.
+      # The build drops Assets and the C# library next to the binary, so the target dir is the playable
+      # game. It needs the shared libs alongside it too, for a zip that runs without env vars.
       - name: Bundle shared libs next to the binary (Unix)
         if: matrix.platform.os != 'windows'
         run: |
@@ -267,14 +268,22 @@ jobs:
             rm -f "$sidecar"
           done
           find "$stage/Assets" -mindepth 1 -type d -empty -delete
-          # Every library the game loads has to come from the folder or the system. LD_LIBRARY_PATH points at
-          # the staged package libs for rcli, so it would hide one that only resolves on this runner.
-          deps=$(env -u LD_LIBRARY_PATH ldd "$stage/Pong")
-          if grep -q 'not found' <<< "$deps"; then
-            echo "$deps"
-            echo "::error::Pong needs a shared library the package does not ship"
+          # The game fails without its C# scripts, and the point of NativeAOT is that no .NET comes along.
+          test -f "$stage/Pong.so" || { echo "::error::no C# scripts library in $stage"; exit 1; }
+          if ldd "$stage/Pong.so" | grep -Ei 'coreclr|hostfxr|nethost'; then
+            echo "::error::Pong.so links the .NET runtime"
             exit 1
           fi
+          # Every library the game loads has to come from the folder or the system. LD_LIBRARY_PATH points at
+          # the staged package libs for rcli, so it would hide one that only resolves on this runner.
+          for binary in Pong Pong.so; do
+            deps=$(env -u LD_LIBRARY_PATH ldd "$stage/$binary")
+            if grep -q 'not found' <<< "$deps"; then
+              echo "$deps"
+              echo "::error::$binary needs a shared library the package does not ship"
+              exit 1
+            fi
+          done
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
           cd package && zip -qr "../${{ env.PACKAGE_NAME }}.zip" "${{ env.PACKAGE_NAME }}"
@@ -307,15 +316,23 @@ jobs:
             rm -f "$sidecar"
           done
           find "$stage/Assets" -mindepth 1 -type d -empty -delete
+          # The game fails without its C# scripts, and the point of NativeAOT is that no .NET comes along.
+          test -f "$stage/Pong.dylib" || { echo "::error::no C# scripts library in $stage"; exit 1; }
+          if otool -L "$stage/Pong.dylib" | grep -Ei 'coreclr|hostfxr|nethost'; then
+            echo "::error::Pong.dylib links the .NET runtime"
+            exit 1
+          fi
           # Every library the game loads has to come from the folder or the OS. An absolute path into the
           # runner's homebrew or package tree only exists on this machine.
-          otool -L "$stage/Pong" | tail -n +2 | awk '{print $1}' | while read -r dep; do
-            case "$dep" in
-              /usr/lib/*|/System/*) ;;
-              @rpath/*|@executable_path/*|@loader_path/*)
-                test -f "$stage/${dep#*/}" || { echo "::error::Pong needs $dep, which the package does not ship"; exit 1; } ;;
-              *) echo "::error::Pong links $dep, which only exists on the build machine"; exit 1 ;;
-            esac
+          for binary in Pong Pong.dylib; do
+            otool -L "$stage/$binary" | tail -n +2 | awk '{print $1}' | while read -r dep; do
+              case "$dep" in
+                /usr/lib/*|/System/*) ;;
+                @rpath/*|@executable_path/*|@loader_path/*)
+                  test -f "$stage/${dep#*/}" || { echo "::error::$binary needs $dep, which the package does not ship"; exit 1; } ;;
+                *) echo "::error::$binary links $dep, which only exists on the build machine"; exit 1 ;;
+              esac
+            done
           done
           chmod +x "$stage/Pong"
           cp README.md LICENSE "$stage/" 2>/dev/null || true
@@ -364,6 +381,11 @@ jobs:
           Get-ChildItem -Path $assets -Recurse -Directory |
             Sort-Object { $_.FullName.Length } -Descending |
             Where-Object { -not (Get-ChildItem $_.FullName -Force) } | Remove-Item -Force
+          # The game fails without its C# scripts.
+          if (-not (Test-Path (Join-Path $stage "Pong.dll"))) {
+            Write-Error "no C# scripts library in $stage"
+            exit 1
+          }
           Copy-Item -Path "README.md","LICENSE" -Destination $stage -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path $stage -DestinationPath "${{ env.PACKAGE_NAME }}.zip" -Force
         shell: pwsh

@@ -28,7 +28,7 @@ target("Pong")
         output_dir = "Assets/Shaders",
     })
     add_rules("@oxylus/cook_assets", { root_dir = os.scriptdir() .. "/Assets" })
-    -- Scripts/Pong.csproj with NativeAOT -> scripts/Pong.dll, which App.cpp hands DotNetScripting
+    -- Scripts/Pong.csproj with NativeAOT -> a Pong library next to the executable, which App.cpp hands DotNetScripting
     add_rules("@oxylus/publish_csharp", {
         project = os.scriptdir() .. "/Scripts/Pong.csproj",
         asset_dir = os.scriptdir() .. "/Assets",
