@@ -9,7 +9,6 @@
       <button id="btn_local_ai" class="action">Local vs AI</button>
       <button id="btn_local_coop" class="action">Local Coop</button>
       <button id="btn_online" class="action">Online Multiplayer</button>
-      <button id="btn_options" class="action">Options</button>
       <button id="btn_exit" class="action">Exit</button>
     </div>
 
@@ -69,14 +68,14 @@
       <div class="player-card">
         <h2>Player 1</h2>
         <div id="p1_status" class="status-text not-ready">
-          Press Up/Down to Ready
+          Press Up/Down to ready
         </div>
       </div>
 
       <div class="player-card">
         <h2>Player 2</h2>
         <div id="p2_status" class="status-text not-ready">
-          Press W/S to Ready
+          Press W/S to ready
         </div>
       </div>
 
@@ -103,12 +102,12 @@
 
     <div id="game_end_ui" data-model="game_state">
       <div class="game-state-info">
-        <h1>Player {{won_player_id}} WON!</h1>
+        <h1>Player {{point_winner}} scores!</h1>
       </div>
       <div class="game-state-info">
         <h1>Get ready!</h1>
         <br />
-        <h1>{{countdown_value}}</h1>
+        <h1>{{countdown}}</h1>
       </div>
     </div>
   </body>

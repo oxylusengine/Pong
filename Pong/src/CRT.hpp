@@ -1,12 +1,15 @@
 #pragma once
 
-#include <Core/App.hpp>
-#include <Render/Utils/VukCommon.hpp>
-#include <vuk/runtime/CommandBuffer.hpp>
-#include <vuk/vsl/Core.hpp>
+#include <Core/Types.hpp>
+#include <Render/Utils/PushConstants.hpp>
+#include <glm/vec2.hpp>
+#include <vir/Fwd.hpp>
 
 namespace pong {
-auto apply_crt(
-  vuk::Value<vuk::ImageAttachment>&& src, vuk::Value<vuk::ImageAttachment>&& dst, u32 frame_count, f32 elapsed_ms
-) -> vuk::Value<vuk::ImageAttachment>;
-}
+// crt.slang's PushConstants: the output and source sizes in pixels, and the time in milliseconds
+using CrtConstants = ox::PushConstants<glm::vec2, glm::vec2, f32>;
+
+// draws `source` into `target` through the CRT shader, which reads its CrtConstants from `constants`, a bytes variable
+// of CrtConstants::TOTAL_SIZE the program is handed each frame
+auto record_crt(vir::Module& module, vir::ValueID source, vir::ValueID target, vir::ValueID constants) -> vir::ValueID;
+} // namespace pong

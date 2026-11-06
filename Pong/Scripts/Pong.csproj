@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- the editor rewrites Oxylus.props whenever the project opens, put settings of your own here instead -->
+  <Import Project="Oxylus.props" />
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>
